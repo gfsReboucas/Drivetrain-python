@@ -4,11 +4,11 @@ Created on Fri Mar 27 14:04:56 2020
 
 @author: geraldod
 """
-from numpy import pi, array, diag, argsort, sqrt, iscomplex, real, zeros, eye, ones
-from scipy.linalg import eig, cholesky, inv
+from numpy import pi, sin, cos, array, diag, argsort, sqrt, iscomplex, real, zeros, zeros_like, eye, ones, allclose, argmax
+from scipy.linalg import eigh, cholesky, inv
 # import Drivetrain
 
-class dynamic_model:
+class model:
     def __init__(self, dtrain):
         self.drivetrain = dtrain # Drivetrain()
         
@@ -28,12 +28,13 @@ class dynamic_model:
         L = cholesky(self.M, lower = True)
         
         # Mass normalized stiffness matrix:
-        K_tilde = inv(L)*self.K*inv(L.T)
+        K_tilde = inv(L) @ self.K @ inv(L.T)
        
-        # correcting numeric erros and make the problem symmetric:
-        # K_tilde = (K_tilde + K_tilde.T)/2.0
+        if(not allclose(K_tilde, K_tilde.T)):
+            print('Matrix is NOT symmetric, but it should be.')
+            K_tilde = (K_tilde + K_tilde.T)/2
         
-        eig_val, mode_shape = eig(K_tilde)
+        eig_val, mode_shape = eigh(K_tilde)
         
         if(not any(iscomplex(eig_val))):
             eig_val = real(eig_val)
@@ -49,6 +50,10 @@ class dynamic_model:
         f_n = f_n[idx]
         mode_shape = mode_shape[:, idx]
         
+        for i in range(len(f_n)):
+            j = argmax(abs(mode_shape[:, i]))
+            mode_shape[:, i] = mode_shape[:, i]/mode_shape[j, i]
+
         return {
                 'f_n': f_n,
                 'mode_shape': mode_shape
@@ -56,7 +61,7 @@ class dynamic_model:
 
 ###############################################################################
 
-class torsional_2DOF(dynamic_model):
+class torsional_2DOF(model):
     def __init__(self, dtrain):
         super().__init__(dtrain)
         self.n_DOF = 2
@@ -95,7 +100,7 @@ class torsional_2DOF(dynamic_model):
         return K
 
 ###############################################################################
-class Kahraman_94(dynamic_model):
+class Kahraman_94(model):
     def __init__(self, dtrain):
         super().__init__(dtrain)
         
@@ -145,26 +150,19 @@ class Kahraman_94(dynamic_model):
     def __stage_inertia_matrix(stage):
         
         if(stage.configuration == 'parallel'):
-            m_p = stage.mass[0]
-            m_w = stage.mass[1]
+            J_p = stage.J_x[0]
+            J_w = stage.J_x[1]
             
-            r_p = stage.d[0]*1.0e-3/2.0
-            r_w = stage.d[1]*1.0e-3/2.0
-            
-            M = diag([m_w*r_w**2, m_p*r_p**2, 0.0])
+            M = diag([J_w, J_p, 0.0])
             
         elif(stage.configuration == 'planetary'):
-            m_c = stage.carrier.mass
-            m_s = stage.mass[0]
-            m_p = stage.mass[1]
+            J_c = stage.carrier.J_x
+            J_s = stage.J_x[0]
+            J_p = stage.J_x[1]
             
-            r_c = stage.a_w*1.0e-3
-            r_s = stage.d[0]*1.0e-3/2.0
-            r_p = stage.d[1]*1.0e-3/2.0
-            
-            d = [m_c*r_c**2]
-            [d.append(m_p*r_p**2) for i in range(stage.N_p)]
-            d.append(m_s*r_s**2)
+            d = [J_c]
+            [d.append(J_p) for i in range(stage.N_p)]
+            d.append(J_s)
             d.append(0.0)
             
             M = diag(d)
@@ -236,7 +234,74 @@ class Kahraman_94(dynamic_model):
         K[-2:, -2:] += stage.output_shaft.stiffness_matrix('torsional')
 
         return K
+
+###############################################################################
+
+class Lin_Parker_99(model):
+    def __init__(self, dtrain):
+        pass
+
+    def __calc_NDOF(self):
+        pass
+
+    def __inertia_matrix(self):
+        pass
+    
+    @staticmethod
+    def __stage_inertia_matrix(stage):
+
+        M_ = lambda m, J: diag([m, m, J])
+
+        if(stage.configuration == 'parallel'):
+
+            M = diag([M_(stage.mass[1], stage.J_x[1]),  # wheel
+                      M_(stage.mass[0], stage.J_x[0]),  # pinion
+                      M_(           0 ,           0 )]) # output shaft
+
+        elif(stage.configuration == 'planetary'):
+            m_p = stage.mass[1]
+            J_p = stage.J_x[1]
             
+            d = [M_(stage.carrier.mass, stage.carrier.J_x)]    # carrier
+            [d.append(M_(m_p, J_p)) for i in range(stage.N_p)] # planet
+            d.append( M_(stage.mass[0], stage.J_x[0]))         # sun
+            d.append( M_(  0,   0))                            # output shaft
+            
+            M = diag(d)
+        
+        M[-6:, -6:] += stage.output_shaft.inertia_matrix('Lin_Parker_99')
+        
+        return M
+        
+    def __stiffness_matrix(self):
+        pass
+
+    @staticmethod
+    def __stage_stiffness_matrix(stage):
+        alpha_n = stage.alpha_n
+
+        psi   = lambda i: (i - 1)*(2*pi/stage.N_p)
+        # psi_s = lambda i: psi(i) - alpha_n
+        # psi_r = lambda i: psi(i) + alpha_n
+        # K_s1 = lambda k, i: k*array([[               sin(psi_s(i))**2, -cos(psi_s(i))*sin(psi_s(i)), -sin(psi_s(i))],
+        #                              [-cos(psi_s(i))*sin(psi_s(i))   ,  cos(psi_s(i))**2           ,  cos(psi_s(i))],
+        #                              [-              sin(psi_s(i))   ,  cos(psi_s(i))              ,         1     ]])
+
+        # K_s2 = lambda k, i: k*array([[ sin(psi_s(i))*sin(alpha_n),  sin(psi_s(i))*cos(alpha_n), -sin(psi_s(i))],
+        #                              [-cos(psi_s(i))*sin(alpha_n), -cos(psi_s(i))*cos(alpha_n),  cos(psi_s(i))],
+        #                              [-              sin(alpha_n), -              cos(alpha_n),         1     ]])
+        # K_s3 = lambda k   : k*array([[ sin(alpha_n)**2          ,  sin(alpha_n)*cos(alpha_n), -sin(alpha_n)],
+        #                              [ sin(alpha_n)*cos(alpha_n),  cos(alpha_n)**2          , -cos(alpha_n)],
+        #                              [-sin(alpha_n)             , -cos(alpha_n)             ,  1]])
+        # K_c3 = lambda y, z: diag([y, z, 0])
+        
+        if(stage.configuration == 'parallel'):
+            pass
+        elif(stage.configuration == 'planetary'):
+            pass
+
+        return 0
+
 ###############################################################################
 if(__name__ == '__main__'):
     pass

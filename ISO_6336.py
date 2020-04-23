@@ -7,7 +7,7 @@ Created on Sun Mar 29 14:18:42 2020
 from Gear import GearSet
 from components import Material
 from scipy import array, interpolate
-from numpy import pi, sin, cos, tan, radians, ones, mean, sqrt, log
+from numpy import pi, sin, cos, tan, radians, ones, mean, sqrt, log, asscalar
 
 ###############################################################################
 
@@ -19,9 +19,9 @@ def _face_load_factor(gset):
     # Method B:
     # h_1 = h_aP + h_fP + k_1*m_n;
     h_1 = abs(gset.d_a[0] - gset.d_f[0])/2.0
-    bh1 = gset.b/h_1;
+    bh1 = gset.b/h_1
     h_2 = abs(gset.d_a[1] - gset.d_f[1])/2.0
-    bh2 = gset.b/h_2;
+    bh2 = gset.b/h_2
 
     bh = min(bh1, bh2)
 
@@ -160,10 +160,10 @@ def _interp_ZNT(line, N):
     y = array(y)
 
     fun = interpolate.interp1d(log(x), y, kind = 'linear', 
-                               fill_value = (y[0], y[-1]))
+                               fill_value = (y[0], y[-1]),
+                               bounds_error = False)
 
-    return fun(log(N))
-
+    return asscalar(fun(log(N)))
 
 def _contact_ratio_factor(gset):
     eps_a = gset.eps_alpha
@@ -178,7 +178,6 @@ def _contact_ratio_factor(gset):
             Z_eps = sqrt(1.0/eps_a)
     
     return Z_eps
-
 
 # def
 
@@ -243,8 +242,6 @@ class ISO_6336:
         R_a    = kwargs['R_a']    if('R_a'    in kwargs) else 0.8
         # [um], 
         R_z    = kwargs['R_z']    if('R_z'    in kwargs) else 6.0*R_a
-        # [-],  ISO accuracy grade:
-        Q      = kwargs['Q']      if('Q'      in kwargs) else 6         
         # Default ISO viscosity grade: VG 220
         # [mm/s^2],  Nominal kinematic viscosity
         nu_40  = kwargs['nu_40']  if('nu_40'  in kwargs) else 220.0
@@ -278,12 +275,13 @@ class ISO_6336:
             sun_pla = gset.sub_set('sun-planet')
             SH1 = self.__calculate_SH(sun_pla, T_1, n_1, C_a, E, nu, rho, 
                                       sigma_Hlim, line, nu_40, R_z)
-            pla_rng = gset.sub_set('planet-ring')
-            SH2 = self.__calculate_SH(pla_rng, T_1, n_1, C_a, E, nu, rho, 
-                                      sigma_Hlim, line, nu_40, R_z)
+            # pla_rng = gset.sub_set('planet-ring')
+            # SH2 = self.__calculate_SH(pla_rng, T_1/gset.N_p, n_1, C_a, E, nu, rho, 
+            #                           sigma_Hlim, line, nu_40, R_z)
             
-            SH = [SH1, SH2]
-            SH = [item for sublist in SH for item in sublist]
+            # SH = [SH1, SH2]
+            # SH = [item for sublist in SH for item in sublist]
+            SH = SH1
         
         return array(SH)
     
@@ -307,12 +305,12 @@ class ISO_6336:
                               S_Hmin = 1.0,
                               S_Fmin = 1.0)
         
-        SH = example_01.Pitting(P   = P1,
-                                n_1 = n1,
-                                R_a = 1.0,
-                                nu_40  = 320.0,
+        SH = example_01.Pitting(P     = P1,
+                                n_1   = n1,
+                                R_a   = 1.0,
+                                nu_40 = 320.0,
                                 line  = 2,
-                                C_a = 70.0) # um
+                                C_a   = 70.0) # um
         
         print(SH)
         
@@ -376,10 +374,10 @@ class ISO_6336:
             Z_R = _rough_factor(gset, R_z, sigma_Hlim)
     
             # Work hardening factor:
-            Z_W = 1.0;
+            Z_W = 1.0
     
             # Size factor:
-            Z_X = 1.0;
+            Z_X = 1.0
     
             # Number of load cycles:
             N_L1 = n_1*60.0*self.L_h # pinion

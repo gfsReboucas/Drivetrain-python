@@ -16,8 +16,8 @@ Written by:
 
 # import sys
 from numpy import pi, sin, tan, radians, isscalar, mean, eye, allclose, diag, \
-                  sqrt
-from scipy import interpolate, array, zeros
+                  sqrt, zeros
+from scipy import interpolate, array
 from scipy.stats import hmean
 from matplotlib.pyplot import gca
 from matplotlib.patches import Rectangle
@@ -371,6 +371,10 @@ class Shaft:
         Element Method for Beams. In: Engineering Computation of Structures: 
         The Finite Element Method. Springer, Cham 
         https://doi.org/10.1007/978-3-319-17710-6_4
+
+        [3] Paz M., Kim Y.H. (2019) Dynamic Analysis of Three-Dimensional Frames. 
+        In: Structural Dynamics. Springer, Cham
+        https://doi.org/10.1007/978-3-319-94743-3_13
         
     written by:
         Geraldo Rebouças
@@ -487,7 +491,7 @@ class Shaft:
             
             M = diag([M_a, M_t, M_b, M_b])
             
-            R = zeros(12)
+            R = zeros((12, 12))
             R[ 1 - 1,  1 - 1] =  1
             R[ 2 - 1,  7 - 1] =  1
             R[ 3 - 1,  4 - 1] =  1
@@ -501,12 +505,24 @@ class Shaft:
             R[ 7 - 1,  8 - 1] =  1
             R[ 8 - 1, 12 - 1] = -1
             
-            M = R.T*M*R
+            M = R.T @ M @ R
+        elif(option == 'Lin_Parker_99'):
+            M = self.inertia_matrix('full')
+            
+            R = zeros((12, 6))
+            R[2  - 1, 1 - 1] = 1
+            R[3  - 1, 2 - 1] = 1
+            R[4  - 1, 3 - 1] = 1
+            R[8  - 1, 4 - 1] = 1
+            R[9  - 1, 5 - 1] = 1
+            R[10 - 1, 6 - 1] = 1
+            
+            M = R.T @ M @ R
         else:
             print('Option [{}] is NOT valid.'.format(option))
 
-        if(not allclose(M, M.T)):
-            M = (M + M.T)/2
+        # if(not allclose(M, M.T)):
+        #     M = (M + M.T)/2
         
         return M
     
@@ -545,7 +561,7 @@ class Shaft:
             
             K = diag([K_a, K_t, K_b, K_b])
             
-            R = zeros(12)
+            R = zeros((12, 12))
             R[ 1 - 1,  1 - 1] =  1
             R[ 2 - 1,  7 - 1] =  1
             R[ 3 - 1,  4 - 1] =  1
@@ -559,12 +575,24 @@ class Shaft:
             R[ 7 - 1,  8 - 1] =  1
             R[ 8 - 1, 12 - 1] = -1
             
-            K = R.T*K*R
+            K = R.T @ K @ R
+        elif(option == 'Lin_Parker_99'):
+            K = self.stiffness_matrix('full')
+            
+            R = zeros((12, 6))
+            R[ 2 - 1, 1 - 1] = 1
+            R[ 3 - 1, 2 - 1] = 1
+            R[ 4 - 1, 3 - 1] = 1
+            R[ 8 - 1, 4 - 1] = 1
+            R[ 9 - 1, 5 - 1] = 1
+            R[10 - 1, 6 - 1] = 1
+            
+            K = R.T @ K @ R
         else:
             print('Option [{}] is NOT valid.'.format(option))
 
-        if(not allclose(K, K.T)):
-            K = (K + K.T)/2
+        # if(not allclose(K, K.T)):
+        #     K = (K + K.T)/2
         
         return K
     
@@ -586,7 +614,7 @@ class Shaft:
             - Using the distortion energy failure theory
         '''
         
-        dd = self.d;
+        dd = self.d
         # Endurance limit:
         if(S_ut <= 1400): # [MPa]
             S_e_prime = 0.5*S_ut
@@ -633,9 +661,9 @@ class Shaft:
         # T_m = 0.0 # Midrange torque
         T_a = 0.0 # Alternating torque
         
-        dd = self.d*1.0e-3;
-        S_e = S_e*1.0e6;
-        S_y = S_y*1.0e6;
+        dd = self.d*1.0e-3
+        S_e = S_e*1.0e6
+        S_y = S_y*1.0e6
         
         # Distortion energy theory and ASME fatigue criteria:
         val = (16.0/(pi*dd**3))*sqrt(4.0*(K_f*M_a/S_e)**2 + 3.0*(K_fs*T_a/S_e)**2 + \
@@ -653,5 +681,5 @@ class Shaft:
 
 if(__name__ == '__main__'):
     rack = Rack(type='A', m=60, alpha_P=20.0)
-    rack.print()
+    # rack.print()
     

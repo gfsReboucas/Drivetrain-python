@@ -6,11 +6,11 @@ Created on Fri Mar 27 11:01:45 2020
 """
 from json import dumps
 from scipy import array#, zeros
-from numpy import pi, cumprod, printoptions, iscomplex
+from numpy import pi, cumprod, printoptions, iscomplex, empty, hstack
 from components import Bearing, Shaft #, check_key
 from Gear import GearSet
-from dynamic_model import *
-# import torsional_2DOF
+from dynamic_model import torsional_2DOF, Kahraman_94
+from ISO_6336 import ISO_6336
 
 class Drivetrain:
     '''
@@ -19,7 +19,7 @@ class Drivetrain:
         # [-],      Number of stages:
         self.N_st        = kwargs['N_st']       if('N_st'          in kwargs) else 3
         # [-],      gearbox stages:
-        self.stage       = kwargs['stage']      if('stage'         in kwargs) else [NREL_5MW.gear_stage(idx) for idx in range(3)]
+        self.stage       = kwargs['stage']      if('stage'         in kwargs) else [NREL_5MW.gear_set(idx) for idx in range(3)]
         #[kW],     Rated power:
         self.P_rated     = kwargs['P_rated']    if('P_rated'       in kwargs) else 5.0e3
         #[1/min.], Rated input speed
@@ -51,12 +51,23 @@ class Drivetrain:
                 'm_n2', 'b_2', 'd_2', 'L_2',
                 # Stage 3:
                 'm_n3', 'b_3', 'd_3', 'L_3',
-# M. M. Inertia: rotor, generator
+        # M. M. Inertia: rotor, generator
                 'J_R' , 'J_G', # Main shaft:
                                'd_s' , 'L_s']
         
         # [-], Scaling factors:
         self.gamma = dict.fromkeys(name, 1.0)
+
+        # Safety factors for gear sets:
+        SH = array(0)
+        for i in range(self.N_st):
+            iso = ISO_6336(self.stage[i])
+            SHi = iso.Pitting(P   = self.P_rated,
+                              n_1 = self.n_out[i])
+            SH = hstack((SH, SHi))
+
+        self.S_H = array(SH[1:])
+
         # Dynamic model
         DM = self.dynamic_model(self)
         self.f_n = DM.f_n
@@ -116,6 +127,30 @@ class Drivetrain:
     def __output_torque(self):
         return (self.P_rated*1.0e3)/(self.n_out*pi/30.0)
     
+    def min_func(self,**kwargs):
+        gamma_P = kwargs['gamma_P'] if('gamma_P' in kwargs) else 1
+        gamma_n = kwargs['gamma_n'] if('gamma_n' in kwargs) else 1
+        gamma   = kwargs['gamma']   if('gamma'   in kwargs) else self.gamma
+        SHref   = kwargs['SHref']   if('SHref'   in kwargs) else self.S_H
+        n       = kwargs['n']       if('n'       in kwargs) else None
+        
+        fnref   = kwargs['fnref']   if('fnref'   in kwargs) else self.f_n
+        fnref  *= 1/fnref[0]
+
+        scale_DT = self
+        scale_DT.__init__(gamma_P = gamma_P,
+                          gamma_n = gamma_n,
+                          gamma   = gamma)
+
+        SH  = scale_DT.S_H
+        fn  = scale_DT.f_n
+        fn *= 1/fn[0]
+
+        diffSH = SHref - SH
+        difffn = 1 - fn/fnref
+
+        return hstack((diffSH, difffn[1:n]))
+
     def save(self):
         pass
         
@@ -179,7 +214,7 @@ class NREL_5MW(Drivetrain):
         
         for idx in range(3):
             gm_idx = dict(filter(lambda item: str(idx + 1) in item[0], self.gamma.items()))
-            stage[idx] = NREL_5MW.gear_stage(idx).apply_lambda(gm_idx)
+            stage[idx] = NREL_5MW.gear_set(idx).apply_lambda(gm_idx)
         
         inp_shaft = NREL_5MW.shaft(-1)
         
@@ -207,7 +242,7 @@ class NREL_5MW(Drivetrain):
             # dump(self.gamma,   file)
         
     @staticmethod
-    def gear_stage(idx):
+    def gear_set(idx):
         '''
         returns the gear stages of the NREL 5 MW wind turbine drivetrain 
         according to [4], Table V. The values for the tip alteration 

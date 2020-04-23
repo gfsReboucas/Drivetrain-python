@@ -362,11 +362,12 @@ class GearSet(Gear):
         f_Halpha = 2.0*sqrt(m_int) + 0.14*sqrt(d_int) + 0.5
         self.f_Halpha = self.__round_ISO(f_Halpha, self.Q)
         # Helix form deviation according to App. B.2.3 of ISO 1328-1 [2]:
-        f_fbeta = (0.07*sqrt(d_int) + 0.45*sqrt(b_int) + 3.0)*pow(2.0, (self.Q - 5.0)/2.0)
+        f_fbeta = (0.07*sqrt(d_int) + 0.45*sqrt(b_int) + 3.0)
         self.f_fbeta = self.__round_ISO(f_fbeta, self.Q)
         # Helix slope deviation according to App. B.2.3 of ISO 1328-1 [2]:
-        self.f_Hbeta = self.f_fbeta        # [-], Gear ratio:
-
+        self.f_Hbeta = self.f_fbeta
+        
+        # [-], Gear ratio:
         self.u             = self.__gear_ratio()
         # [deg.], Working transverse pressure angle:
         self.alpha_wt      = self.__working_transverse_pressure_angle()
@@ -447,7 +448,7 @@ class GearSet(Gear):
             C_p = (C_c[0], C_c[1] + self.a_w)
             C_s = (C_c[0] + self.carrier.b/2.0 + self.output_shaft.L/2.0, C_c[1])
             
-            self.carrier.rectangle(  C_c, color[3])
+            # self.carrier.rectangle(  C_c, color[3])
             self.__gear(2).rectangle(C_c, color[2])
             self.__gear(0).rectangle(C_c, color[0])
             self.__gear(1).rectangle(C_p, color[1])
@@ -488,14 +489,13 @@ class GearSet(Gear):
             std_file = 'PlanetarySet 1 (ISO6336).Z14'
             geo_meth = True
             
-        file_name = os.path.join('C:\Program Files (x86)\KISSsoft 03-2017\example', std_file)
+        file_name = os.path.join('C:\\Program Files (x86)\\KISSsoft 03-2017\\example', std_file)
         
         try:
             ks.LoadFile(file_name)
         except:
             ks.ReleaseModule()
             raise Exception('Error while loading file {}.'.format(file_name))
-            return
         
         ks.SetVar('ZS.AnzahlZwi', '{}'.format(             self.N_p))      # number of planets
         ks.SetVar('ZS.Geo.mn'   , '{:.6f}'.format(        self.m_n))      # normal module
@@ -505,7 +505,6 @@ class GearSet(Gear):
         
         ks.SetVar('RechSt.GeometrieMeth', '{}'.format(geo_meth)) # tooth geometry according to [6]
         
-        Q      = 6   # [-],  ISO accuracy grade
         R_a    = 0.8 # [um], Maximum arithmetic mean roughness for external gears according to [5], Sec. 7.2.7.2.
         
         for idx, zz in enumerate(self.z):
@@ -515,7 +514,7 @@ class GearSet(Gear):
             ks.SetVar('ZR[{}].Tool.type'.format(idx), '2')
             # ks.SetVar('ZR[{}].Tool.RefProfile.name'.format(idx), '1.25 / 0.38 / 1.0 ISO 53:1998 Profil %s', obj.type));
                
-            ks.SetVar('ZR[{}].Vqual'.format(idx), '{}'.format(Q))
+            ks.SetVar('ZR[{}].Vqual'.format(idx), '{}'.format(self.Q))
             ks.SetVar('ZR[{}].RAH'  .format(idx), '{}'.format(R_a))
             ks.SetVar('ZR[{}].RAF'  .format(idx), '{}'.format(6.0*R_a))
             
@@ -591,7 +590,7 @@ class GearSet(Gear):
 
     def __gear_ratio(self):
         if(self.configuration == 'parallel'):
-            val = self.z[1]/self.z[0]
+            val = abs(self.z[1])/self.z[0]
         elif(self.configuration == 'planetary'):
             val = 1.0 + abs(self.z[2])/self.z[0]
         else:
@@ -915,4 +914,4 @@ class Carrier:
 
 if(__name__ == '__main__'):
     gset = GearSet()
-    gset.print()
+    # gset.print()
