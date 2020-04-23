@@ -9,7 +9,7 @@ from scipy import array#, zeros
 from numpy import pi, cumprod, printoptions, iscomplex, empty, hstack
 from components import Bearing, Shaft #, check_key
 from Gear import GearSet
-from dynamic_model import torsional_2DOF, Kahraman_94
+from dynamic_formulation import torsional_2DOF, Kahraman_94, Lin_Parker_99
 from ISO_6336 import ISO_6336
 
 class Drivetrain:
@@ -196,7 +196,8 @@ class NREL_5MW(Drivetrain):
         # [-], Rated rotor speed scaling factor:
         gamma_n    = kwargs['gamma_n']   if('gamma_n'   in kwargs) else 1.0
         # [-], Dynamic model:
-        dyn_mod    = kwargs['dynamic_model'] if('dynamic_model' in kwargs) else Kahraman_94
+        # dyn_mod    = kwargs['dynamic_model'] if('dynamic_model' in kwargs) else Kahraman_94
+        dyn_mod    = kwargs['dynamic_model'] if('dynamic_model' in kwargs) else Lin_Parker_99
         
         p_r = 5.0e3*gamma_P
         n_r = 12.1*gamma_n
@@ -381,7 +382,15 @@ class NREL_5MW(Drivetrain):
             INP_B     = Bearing(array([4.06e8, 1.54e10, 1.54e10, 0.0, 0.0  , 0.0  ]),
                                 damping,
                                 name = 'INP_B', type = 'SRB', OD = 1220.0, ID = 750.0, B = 365.0)
-        
+
+            #                     K_x,    K_y,     K_z,     K_a, K_b,   K_g
+            brg = Bearing(array([[0.0   , 1.50e10, 1.50e10, 0.0, 5.0e6, 5.0e6],
+                                 [4.06e8, 1.54e10, 1.54e10, 0.0, 0.0  , 0.0  ]]).T,
+                          array([[0.0   , 42000.0,	30600.0, 0.0, 34.3 , 47.8 ],
+                                 damping]).T,
+                          name = 'INP', type = ['CARB', 'SRB'], OD = [1750.0, 1220.0], 
+                          ID = [1250.0, 750.0],B = [375, 365])
+
             brg = [INP_A, INP_B]
         elif(idx == 0): # stage 1
                                #       K_x,    K_y,     K_z,     K_a, K_b,   K_g,   OD,     ID,     B

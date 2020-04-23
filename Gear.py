@@ -469,6 +469,7 @@ class GearSet(Gear):
                        beta          = self.beta,
                        k             = self.k,
                        bore_ratio    = self.bore_ratio,
+                       bearing       = self.bearing,
                        N_p           = self.N_p)
 
     def KISSsoft(self):

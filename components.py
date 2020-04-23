@@ -19,6 +19,7 @@ from numpy import pi, sin, tan, radians, isscalar, mean, eye, allclose, diag, \
                   sqrt, zeros
 from scipy import interpolate, array
 from scipy.stats import hmean
+from scipy.linalg import block_diag
 from matplotlib.pyplot import gca
 from matplotlib.patches import Rectangle
 
@@ -290,7 +291,24 @@ class Bearing:
                'Width,                               B       = {} mm\n'.format(self.B))
         
         return val
- 
+
+    def __len__(self):
+        return len(self.k_x)
+
+    def __getitem__(self, key):
+        return Bearing(array([self.k_x[key],
+                              self.k_y[key],
+                              self.k_z[key],
+                              self.k_alpha[key],
+                              self.k_beta[key],
+                              self.k_gamma[key]]),
+                       array([self.d_x[key],
+                              self.d_y[key],
+                              self.d_z[key],
+                              self.d_alpha[key],
+                              self.d_beta[key],
+                              self.d_gamma[key]]))
+                             
     def series_association(self):
         if(isscalar(self.k_x)):
             print('Only one bearing.')
@@ -347,7 +365,6 @@ class Bearing:
                          self.k_alpha, self.k_beta, self.k_gamma])
         else:
             print('Only one bearing.')
-
         
     def damping_matrix(self):
         if(isscalar(self.d_x)):
@@ -489,7 +506,7 @@ class Shaft:
             M_t = self.inertia_matrix('torsional')
             M_b = self.inertia_matrix('bending')
             
-            M = diag([M_a, M_t, M_b, M_b])
+            M = block_diag(M_a, M_t, M_b, M_b)
             
             R = zeros((12, 12))
             R[ 1 - 1,  1 - 1] =  1
@@ -559,7 +576,7 @@ class Shaft:
             K_t = self.stiffness_matrix('torsional')
             K_b = self.stiffness_matrix('bending')
             
-            K = diag([K_a, K_t, K_b, K_b])
+            K = block_diag(K_a, K_t, K_b, K_b)
             
             R = zeros((12, 12))
             R[ 1 - 1,  1 - 1] =  1
@@ -680,6 +697,15 @@ class Shaft:
 ###############################################################################
 
 if(__name__ == '__main__'):
-    rack = Rack(type='A', m=60, alpha_P=20.0)
+    # rack = Rack(type='A', m=60, alpha_P=20.0)
     # rack.print()
+    brg = Bearing(array([[0.0   , 1.50e10, 1.50e10, 0.0, 5.0e6, 5.0e6],
+                         [4.06e8, 1.54e10, 1.54e10, 0.0, 0.0  , 0.0  ]]).T,
+                  array([[0.0   , 42000.0,	30600.0, 0.0, 34.3 , 47.8],
+                         [0.0   , 42000.0,	30600.0, 0.0, 34.3 , 47.8]]).T,
+                         name = 'INP', type = ['CARB', 'SRB'], OD = [1750.0, 1220.0], 
+                         ID = [1250.0, 750.0],B = [375, 365])
+    
+    print(brg[0])
+
     
