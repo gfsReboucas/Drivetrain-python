@@ -353,9 +353,9 @@ class Bearing:
             db = sum(self.d_beta)
             dg = sum(self.d_gamma)
             
-        k = [kx, ky, kz, ka, kb, kg]
-        d = [dx, dy, dz, da, db, dg]
-            
+        k = array([kx, ky, kz, ka, kb, kg])
+        d = array([dx, dy, dz, da, db, dg])
+
         return Bearing(k, d, name = ' / '.join(self.name), type = 'parallel', \
                        OD = mean(self.OD), ID = mean(self.ID), B = mean(self.B))
         
@@ -538,9 +538,6 @@ class Shaft:
         else:
             print('Option [{}] is NOT valid.'.format(option))
 
-        # if(not allclose(M, M.T)):
-        #     M = (M + M.T)/2
-        
         return M
     
     def stiffness_matrix(self, option):

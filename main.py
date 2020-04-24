@@ -23,7 +23,7 @@ if(__name__ == '__main__'):
         gm[key] = ref.gamma[key]*gm_P**(1/3)
         
     val = ref.min_func(gamma_P = gm_P,
-                      gamma   = gm)
+                       gamma   = gm)
 
     print(val)
 

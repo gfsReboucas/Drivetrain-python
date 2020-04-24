@@ -224,15 +224,15 @@ class NREL_5MW(Drivetrain):
         L_s = inp_shaft.L
         L_s *= self.gamma['L_s'] if('L_s' in self.gamma) else 1.0
         
-        super().__init__(P_rated = p_r,
-                         n_rated = n_r,
-                         stage = stage,
-                         main_shaft = Shaft(d_s, L_s),
-                         m_Rotor = m_R,
-                         J_Rotor = J_R,
-                         m_Gen = m_G,
-                         J_Gen = J_G,
-                         N_st = 3,
+        super().__init__(P_rated       = p_r,
+                         n_rated       = n_r,
+                         stage         = stage,
+                         main_shaft    = Shaft(d_s, L_s),
+                         m_Rotor       = m_R,
+                         J_Rotor       = J_R,
+                         m_Gen         = m_G,
+                         J_Gen         = J_G,
+                         N_st          = 3,
                          dynamic_model = dyn_mod)
 
     def save(self, filename):
@@ -374,79 +374,65 @@ class NREL_5MW(Drivetrain):
         damping = array([453.0 , 42000.0,	30600.0, 0.0, 34.3 , 47.8 ])
         
         if(idx == -1): # main shaft
-            #                          K_x,    K_y,     K_z,     K_a, K_b,   K_g
-            INP_A     = Bearing(array([0.0   , 1.50e10, 1.50e10, 0.0, 5.0e6, 5.0e6]),
-                                # damping:
-                                array([0.0   , 42000.0,	30600.0, 0.0, 34.3 , 47.8 ]),
-                                name = 'INP_A', type = 'CARB', OD = 1750.0, ID = 1250.0, B = 375.0)
-            INP_B     = Bearing(array([4.06e8, 1.54e10, 1.54e10, 0.0, 0.0  , 0.0  ]),
-                                damping,
-                                name = 'INP_B', type = 'SRB', OD = 1220.0, ID = 750.0, B = 365.0)
-
-            #                     K_x,    K_y,     K_z,     K_a, K_b,   K_g
-            brg = Bearing(array([[0.0   , 1.50e10, 1.50e10, 0.0, 5.0e6, 5.0e6],
-                                 [4.06e8, 1.54e10, 1.54e10, 0.0, 0.0  , 0.0  ]]).T,
-                          array([[0.0   , 42000.0,	30600.0, 0.0, 34.3 , 47.8 ],
+            #                      x,      y,       z,       a,    b,      g
+            brg = Bearing(array([[0.0   , 1.50e10, 1.50e10, 0.0,  5.0e6,  5.0e6],     # stiffness
+                                 [4.06e8, 1.54e10, 1.54e10, 0.0,  0.0  ,  0.0  ]]).T,
+                          array([[0.0   , 42000.0, 30600.0, 0.0, 34.3  , 47.8  ],    # damping
                                  damping]).T,
-                          name = 'INP', type = ['CARB', 'SRB'], OD = [1750.0, 1220.0], 
-                          ID = [1250.0, 750.0],B = [375, 365])
-
-            brg = [INP_A, INP_B]
+                          name =       ['INP-A', 'INP-B'], 
+                          type =       [ 'CARB',   'SRB'], 
+                          OD   = array([ 1750.0,  1220.0]), 
+                          ID   = array([ 1250.0,   750.0]), 
+                          B    = array([  375.0,   365.0]))
         elif(idx == 0): # stage 1
-                               #       K_x,    K_y,     K_z,     K_a, K_b,   K_g,   OD,     ID,     B
-            PL_A      = Bearing(array([9.1e4,  9.4e9,   3.2e9,   0.0, 1.4e6, 4.5e6]),
-                                damping,
-                                name = 'PL_A', type = 'CRB', OD = 600.0, ID = 400.0, B = 272.0)
-            PL_B      = Bearing(array([9.1e4,  9.4e9,   3.2e9,   0.0, 1.4e6, 4.5e6]),
-                                damping,
-                                name = 'PL_B', type = 'CRB', OD = 600.0, ID = 400.0, B = 272.0)
-            PLC_A     = Bearing(array([6.6e4,  1.7e9,   1.1e9,   0.0, 5.6e5, 1.3e5]),
-                                damping,
-                                name = 'PLC_A', type = 'SRB', OD = 1030.0, ID = 710.0, B = 315.0)
-            PLC_B     = Bearing(array([6.6e7,  1.7e9,   1.1e9,   0.0, 5.6e5, 1.3e5]),
-                                damping,
-                                name = 'PLC_B', type = 'CRB', OD = 1220.0, ID = 1000.0, B = 128.0)
-                   # Planet
-            brg = [PL_A,  PL_B,
-                   # Carrier
-                   PLC_A, PLC_B]
+            #                      x,     y,     z,     a,   b,     g
+            brg = Bearing(array([[9.1e4, 9.4e9, 3.2e9, 0.0, 1.4e6, 4.5e6],
+                                 [9.1e4, 9.4e9, 3.2e9, 0.0, 1.4e6, 4.5e6],
+                                 [6.6e4, 1.7e9, 1.1e9, 0.0, 5.6e5, 1.3e5],
+                                 [6.6e7, 1.7e9, 1.1e9, 0.0, 5.6e5, 1.3e5]]).T, # stiffness
+                          array([damping,
+                                 damping,
+                                 damping,
+                                 damping]).T, # damping
+                          name =       ['PL-A', 'PL-B', 'PLC-A', 'PLC-B'], 
+                          type =       [ 'CRB',  'CRB',   'SRB',   'CRB'],
+                          OD   = array([ 600.0,  600.0,  1030.0,  1220.0]),
+                          ID   = array([ 400.0,  400.0,   710.0,  1000.0]),
+                          B    = array([ 272.0,  272.0,   315.0,   128.0]))
         elif(idx == 1): # stage 2
-                               #       K_x,    K_y,     K_z,     K_a, K_b,   K_g,   OD,     ID,     B
-            IMS_PL_A  = Bearing(array([9.1e4,  6.0e7,   1.2e9,   0.0, 7.5e4, 7.5e4]),
-                                damping,
-                                name = 'IMS_PL_A' , type = 'CRB',  OD = 520.0,  ID = 380.0, B = 140.0)
-            IMS_PL_B  = Bearing(array([9.1e4,  6.0e7,   1.2e9,   0.0, 7.5e4, 7.5e4]),
-                                name = 'IMS_PL_B' , type = 'CRB',  OD = 520.0,  ID = 380.0, B = 140.0)
-            IMS_PLC_A = Bearing(array([9.1e4,  6.0e7,   1.2e9,   0.0, 7.5e4, 7.5e4]),
-                                name = 'IMS_PLC_A', type = 'CARB', OD = 1030.0, ID = 710.0, B = 236.0)
-            IMS_PLC_B = Bearing(array([9.1e7,  6.0e7,   1.2e9,   0.0, 7.5e4, 7.5e4]),
-                                name = 'IMS_PLC_B', type = 'CRB' , OD = 870.0, ID = 600.0,  B = 155.0)
-            
-            brg = [IMS_PL_A,  IMS_PL_B,  # Planet
-                   IMS_PLC_A, IMS_PLC_B] # Carrier
+            #                      x,     y,     z,     a,   b,     g
+            brg = Bearing(array([[9.1e4, 6.0e7, 1.2e9, 0.0, 7.5e4, 7.5e4],
+                                 [9.1e4, 6.0e7, 1.2e9, 0.0, 7.5e4, 7.5e4],
+                                 [9.1e4, 6.0e7, 1.2e9, 0.0, 7.5e4, 7.5e4],
+                                 [9.1e7, 6.0e7, 1.2e9, 0.0, 7.5e4, 7.5e4]]).T, # stiffness
+                          array([damping,
+                                 damping,
+                                 damping,
+                                 damping]).T, # damping
+                          name =       ['IMS-PL-A', 'IMS-PL-B', 'IMS-PLC-A', 'IMS-PLC-B'], 
+                          type =       [     'CRB',      'CRB',      'CARB',       'CRB'],
+                          OD   = array([     520.0,      520.0,      1030.0,       870.0]),
+                          ID   = array([     380.0,      380.0,       710.0,       600.0]),
+                          B    = array([     140.0,      140.0,       236.0,       155.0]))
         elif(idx == 2): # stage 3
-                               #       K_x,    K_y,     K_z,     K_a, K_b,   K_g,   OD,     ID,     B
-            IMS_A     = Bearing(array([0.0,    6.0e7,   1.2e9,   0.0, 7.5e4, 7.5e4]),
-                                damping,
-                                name = 'IMS_A'    , type = 'CRB',  OD = 360.0,  ID = 200.0,   B = 98.0)
-            IMS_B     = Bearing(array([7.4e7,  5.0e8,   5.0e8,   0.0, 1.6e6, 1.8e6]),
-                                damping,
-                                name = 'IMS_B'    , type = 'TRB',  OD = 460.0,  ID = 200.0,  B = 100.0)
-            IMS_C     = Bearing(array([7.8e7,  7.4e8,   3.3e8,   0.0, 1.1e6, 2.5e6]),
-                                damping,
-                                name = 'IMS_C'    , type = 'TRB',  OD = 460.0,  ID = 200.0,  B = 100.0)
-            HS_A      = Bearing(array([1.3e8,  8.2e8,   8.2e8,   0.0, 1.7e5, 1.0e6]),
-                                damping,
-                                name = 'HS_A'     , type = 'CRB',  OD = 500.0,  ID = 400.0,  B = 100.0)
-            HS_B      = Bearing(array([6.7e7,  8.0e8,   1.3e8,   0.0, 1.7e5, 1.0e6]),
-                                damping,
-                                name = 'HS_B'     , type = 'TRB',  OD = 550.0,  ID = 410.0,   B = 86.0)
-            HS_C      = Bearing(array([8.0e7,  1.0e9,   7.3e7,   0.0, 1.7e5, 1.0e6]),
-                                damping,
-                                name = 'HS_C'     , type = 'TRB',  OD = 550.0,  ID = 410.0,   B = 86.0)
-            
-            brg = [HS_A,  HS_B,  HS_C,  # Pinion
-                   IMS_A, IMS_B, IMS_C] # Wheel
+            #                      x,     y,     z,     a,   b,     g
+            brg = Bearing(array([[0.0,   6.0e7, 1.2e9, 0.0, 7.5e4, 7.5e4],
+                                 [7.4e7, 5.0e8, 5.0e8, 0.0, 1.6e6, 1.8e6],
+                                 [7.8e7, 7.4e8, 3.3e8, 0.0, 1.1e6, 2.5e6],
+                                 [1.3e8, 8.2e8, 8.2e8, 0.0, 1.7e5, 1.0e6],
+                                 [6.7e7, 8.0e8, 1.3e8, 0.0, 1.7e5, 1.0e6],
+                                 [8.0e7, 1.0e9, 7.3e7, 0.0, 1.7e5, 1.0e6]]).T, # stiffness
+                          array([damping,
+                                 damping,
+                                 damping,
+                                 damping,
+                                 damping,
+                                 damping]).T, # damping
+                          name =       ['IMS-A', 'IMS-B', 'IMS-C', 'HS-A', 'HS-B', 'HS-C'], 
+                          type =       [  'CRB',   'TRB',   'TRB',  'CRB',  'TRB',  'TRB'],
+                          OD   = array([  360.0,   460.0,   460.0,  500.0,  550.0,  550.0]),
+                          ID   = array([  200.0,   200.0,   200.0,  400.0,  410.0,  410.0]),
+                          B    = array([   98.0,   100.0,   100.0,  100.0,   86.0,   86.0]))
         else:
             raise Exception('Option [{}] is NOT valid.'.format(idx))
     
