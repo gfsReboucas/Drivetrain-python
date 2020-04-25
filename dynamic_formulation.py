@@ -4,27 +4,55 @@ Created on Fri Mar 27 14:04:56 2020
 
 @author: geraldod
 """
-from numpy import pi, sin, cos, argsort, sqrt, iscomplex, real
-from numpy import array, diag, argsort, zeros, zeros_like, eye, ones, allclose, argmax, hstack, vstack, block
-from scipy.linalg import eig, eigh, cholesky, inv, block_diag
-
-from Gear import GearSet
+from numpy import pi, sin, cos, argsort, iscomplex, real, nan
+from numpy import array, diag, argsort, zeros, zeros_like, eye, ones 
+from numpy import allclose, argmax, hstack, vstack, block, repeat, reshape
+from numpy.lib.scimath import sqrt
+from scipy.linalg import eig, cholesky, inv, block_diag, pinv
 # import Drivetrain
 
-class model:
+class torsional_model:
     def __init__(self, dtrain):
-        self.drivetrain = dtrain # Drivetrain()
+        self.drivetrain = dtrain
+
+        self.n_DOF = self.__calc_NDOF()
+        self.M     = self.__inertia_matrix()
+        self.K     = self.__stiffness_matrix()
         
-        # self.x = 0
-        self.M = 0
-        self.K = 0
-        # self.F = 0
+        MA = self.modal_analysis()
+
+        self.f_n        = MA['f_n']
+        self.mode_shape = MA['mode_shape']
+    
+    def __calc_NDOF(self):
+        return 2
+
+    def __inertia_matrix(self):
+        DT = self.drivetrain
         
-        # self.n_DOF = 0
+        J_R = DT.J_Rotor # [kg-m^2], Rotor inertia
+        J_G = DT.J_Gen   # [kg-m^2], Generator inertia
+
+        U = DT.u[-1]
         
-        # self.f_n = 0
-        # self.mode_shape = 0
+        M = diag([J_R, J_G*U**2])
         
+        return M
+
+    def __stiffness_matrix(self):
+        DT = self.drivetrain
+        U = DT.u[-1]
+        
+        k_LSS = DT.main_shaft.stiffness('torsional')
+        k_HSS = DT.stage[-1].output_shaft.stiffness('torsional')
+            
+        k = (k_LSS*k_HSS*U**2)/(k_LSS + k_HSS*U**2)
+        
+        K = k*array([[ 1.0, -1.0],
+                     [-1.0,  1.0]])
+        
+        return K
+
     def modal_analysis(self):
         
         eig_val, mode_shape = eig(self.K, self.M, right = True)
@@ -52,48 +80,197 @@ class model:
                 'mode_shape': mode_shape
                 }
 
+    @staticmethod
+    def testing():
+        class dummy_shaft:
+            def __init__(self, k):
+                self.k = k
+            def stiffness(self, opt):
+                return self.k
+
+        class dummy_stage:
+            def __init__(self, k):
+                self.output_shaft = dummy_shaft(k)
+
+        class dummy:
+            def __init__(self):
+                self.J_Rotor    = 3
+                self.J_Gen      = 5
+                self.u          = [7]
+                self.k_LSS      = 11
+                self.k_HSS      = 13
+                self.main_shaft =  dummy_shaft(self.k_LSS)
+                self.stage      = [dummy_stage(self.k_HSS)]
+        
+        DT = dummy()
+        test = torsional_model(DT)
+        
+        # Analytical results:
+        k_LSS = DT.k_LSS
+        k_HSS = DT.k_HSS
+        U     = DT.u[-1]
+
+        k = (k_LSS*k_HSS*U**2)/(k_LSS + k_HSS*U**2)
+        f1 = sqrt(k/DT.J_Rotor + k/(DT.J_Gen*U**2))/(2*pi)
+
+        f_ana = array([0.0, f1])
+        f_test = sorted(test.f_n)
+        if(not allclose(f_test, f_ana)):
+            print('ERROR!!!!!!!!')
+
 ###############################################################################
-
-class torsional_2DOF(model):
-    def __init__(self, dtrain):
-        super().__init__(dtrain)
-        self.n_DOF = 2
-
-        self.M = self.__inertia_matrix()
-        self.K = self.__stiffness_matrix()
+class general_Kahraman_94(torsional_model):
+    def __init__(self, stage):
+        self.stage = stage
+        self.n_DOF = self.__calc_NDOF()
+        self.M     = self.__inertia_matrix()
+        self.K     = self.__stiffness_matrix()
         
-        modA = self.modal_analysis()
-        self.f_n = modA['f_n']
-        self.mode_shape = modA['mode_shape']
-        
+        MA = self.modal_analysis()
+
+        self.f_n        = MA['f_n']
+        self.mode_shape = MA['mode_shape']
+    
+    def __calc_NDOF(self):
+        return self.stage.N_p + 3
+
     def __inertia_matrix(self):
-        DT = self.drivetrain
-        
-        J_R = DT.J_Rotor # [kg-m^2], Rotor inertia
-        J_G = DT.J_Gen   # [kg-m^2], Generator inertia
+        stage = self.stage
 
-        U = DT.u[-1]
-        
-        M = diag([J_R, J_G*U**2])
-        
+        if(stage.configuration == 'parallel'):
+            m_p = stage.J_x[0]/(stage.d[0]*1.0e-3/2)**2
+            m_w = stage.J_x[1]/(stage.d[1]*1.0e-3/2)**2
+            d = array(m_w, m_p)
+
+        elif(stage.configuration == 'planetary'):
+            m_c = stage.carrier.J_x/(stage.a_w*1.0e-3)**2
+            m_r = stage.J_x[2]/(stage.d[2]*1.0e-3/2)**2
+            m_s = stage.J_x[0]/(stage.d[0]*1.0e-3/2)**2
+            m_p = stage.J_x[1]/(stage.d[1]*1.0e-3/2)**2
+
+            v1 = array([m_c, m_r, m_s])
+            vp = ones(stage.N_p)*m_p
+            d  = hstack((v1, vp))
+
+        M = diag(d)
+
+        if(stage.configuration == 'planetary'):
+            N_eo = stage.N_p + 3 # number of elements (original)
+            N_e  = N_eo - 1 # number of elements (new)
+
+            W = eye(N_e, N_eo)
+            for idx in range(N_e - 1):
+                c1 = N_e - idx
+                c2 = c1 - 1
+                W[:, [c1, c2]] = W[:, [c2, c1]]
+            
+            W = pinv(W)
+            M = W.T @ M @ W
+
         return M
 
+    @staticmethod
+    def __stage_inertia_matrix(stage):
+        pass
+
     def __stiffness_matrix(self):
-        DT = self.drivetrain
-        U = DT.u[-1]
-        
-        k_LSS = DT.main_shaft.stiffness('torsional')
-        k_HSS = DT.stage[-1].output_shaft.stiffness('torsional')
+        return general_Kahraman_94.__stage_stiffness_matrix(self.drivetrain.stage)
+
+    @staticmethod
+    def __stage_stiffness_matrix(stage):
+        if(stage.configuration == 'parallel'):
+            pass
+        elif(stage.configuration == 'planetary'):
+            k_c = 0
+            k_s = 0
+            k_r = 0 # fixed ring
+
+            n = stage.N_p
+            k_1 = stage.sub_set('planet-ring').k_mesh
+            k_2 = stage.sub_set('sun-planet').k_mesh
+
+            v = array([ k_1 - k_2,
+                       -k_1,
+                              k_2])
             
-        k = (k_LSS*k_HSS*U**2)/(k_LSS + k_HSS*U**2)
-        
-        K = k*array([[ 1.0, -1.0],
-                     [-1.0,  1.0]])
+            k_11 = zeros((3, 3))
+            k_11[0, 1:] = -n*array([k_1, k_2])
+            k_11 += k_11.T
+            k_11 += diag([n*(k_1 + k_2) + k_c,
+                          n* k_1 +        k_r,
+                          n*       k_2  + k_s]) 
+            
+            k_12 = repeat(v, n).reshape(3, n)
+
+            d = ones(n)*(k_1 + k_2)
+            k_22 = diag(d)
+
+            K = block([[k_11  , k_12],
+                       [k_12.T, k_22]])
+            
+            N_eo = n + 3 # number of elements (original)
+            N_e  = N_eo - 1 # number of elements (new)
+
+            W = eye(N_e, N_eo)
+            for idx in range(N_e - 1):
+                c1 = N_e - idx
+                c2 = c1 - 1
+                W[:, [c1, c2]] = W[:, [c2, c1]]
+            
+            W = pinv(W)
+            K = W.T @ K @ W
         
         return K
 
+    @staticmethod
+    def testing():
+        class dummy_carrier:
+            def __init__(self):
+                self.J_x = 7
+
+        class dummy_stage:
+            def __init__(self):
+                self.configuration = 'planetary'
+                self.N_p = 3
+                self.J_x = array([3, 5, 7])
+                self.d   = array([71, 83, 97])
+                self.carrier = dummy_carrier()
+                self.a_w = 101
+
+            def sub_set(self, opt):
+                val = dummy_stage()
+                val.k_mesh = 193
+                return val                
+
+        stage = dummy_stage()
+        test = general_Kahraman_94(stage)
+
+        # Analytical results for fixed ring:
+        n = stage.N_p
+        m_p = stage.J_x[1]/(stage.d[1]*1.0e-3/2)**2
+        m_c = stage.carrier.J_x/(stage.a_w*1.0e-3)**2
+        m_s = stage.J_x[0]/(stage.d[0]*1.0e-3/2)**2
+
+        k_1 = stage.sub_set('planet-ring').k_mesh
+        k_2 = stage.sub_set('sun-planet').k_mesh
+
+        Lambda_1 = m_p*m_c*m_s
+        Lambda_2 = -(n*k_2*m_p*m_c + (k_1 + k_2)*m_c*m_s + n*(k_1 + k_2)*m_p*m_s)
+        Lambda_3 = n*k_1*k_2*(n*m_p + m_c + 4*m_s)
+
+        omega_1 = 0
+        omega_2 = sqrt((-Lambda_2 - sqrt(Lambda_2**2 - 4*Lambda_1*Lambda_3))/(2*Lambda_1))/(2*pi)
+        omega_3 = sqrt((k_1 + k_2)/m_p)*ones(n - 1)/(2*pi)
+        omega_4 = sqrt((-Lambda_2 + sqrt(Lambda_2**2 - 4*Lambda_1*Lambda_3))/(2*Lambda_1))/(2*pi)
+        f_ana   = hstack((omega_3, array([omega_1,omega_2, omega_4])))
+
+        f_test = sorted(test.f_n)
+        f_ana  = sorted(f_ana)
+        if(not allclose(f_test, f_ana)):
+            print('ERROR!!!!!!!!')
+
 ###############################################################################
-class Kahraman_94(model):
+class Kahraman_94(torsional_model):
     def __init__(self, dtrain):
         super().__init__(dtrain)
         
@@ -230,14 +407,14 @@ class Kahraman_94(model):
         return K
 
 ###############################################################################
-class Lin_Parker_99(model):
+class Lin_Parker_99(torsional_model):
     def __init__(self, dtrain):
         super().__init__(dtrain)
 
-        self.n_DOF = self.__calc_
+        # self.n_DOF = self.__calc_
 
 
-class Lin_Parker_99_mod(model):
+class Lin_Parker_99_mod(torsional_model):
     def __init__(self, dtrain):
         super().__init__(dtrain)
         
@@ -554,5 +731,5 @@ class Lin_Parker_99_mod(model):
 
 ###############################################################################
 if(__name__ == '__main__'):
-    Lin_Parker_99.testing()
+    general_Kahraman_94.testing()
     pass
