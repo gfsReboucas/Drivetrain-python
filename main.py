@@ -6,7 +6,7 @@ Created on Mon Apr  6 15:03:51 2020
 """
 
 from Drivetrain import NREL_5MW
-from dynamic_formulation import Kahraman_94, torsional_2DOF
+from dynamic_formulation import Kahraman_94, torsional_model
 from matplotlib import pyplot
 
 if(__name__ == '__main__'):
@@ -23,8 +23,11 @@ if(__name__ == '__main__'):
         gm[key] = ref.gamma[key]*gm_P**(1/3)
         
     val = ref.min_func(gamma_P = gm_P,
-                       gamma   = gm)
+                       gamma   = gm,
+                       n = 5)
 
+
+    print(ref.S_H)
     print(val)
 
     # for i in range(14):

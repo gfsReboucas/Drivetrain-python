@@ -9,7 +9,7 @@ from scipy import array#, zeros
 from numpy import pi, cumprod, printoptions, iscomplex, empty, hstack
 from components import Bearing, Shaft #, check_key
 from Gear import GearSet
-from dynamic_formulation import torsional_2DOF, Kahraman_94, Lin_Parker_99
+from dynamic_formulation import torsional_model, Kahraman_94, Lin_Parker_99
 from ISO_6336 import ISO_6336
 
 class Drivetrain:
@@ -196,8 +196,8 @@ class NREL_5MW(Drivetrain):
         # [-], Rated rotor speed scaling factor:
         gamma_n    = kwargs['gamma_n']   if('gamma_n'   in kwargs) else 1.0
         # [-], Dynamic model:
-        # dyn_mod    = kwargs['dynamic_model'] if('dynamic_model' in kwargs) else Kahraman_94
-        dyn_mod    = kwargs['dynamic_model'] if('dynamic_model' in kwargs) else Lin_Parker_99
+        dyn_mod    = kwargs['dynamic_model'] if('dynamic_model' in kwargs) else Kahraman_94
+        # dyn_mod    = kwargs['dynamic_model'] if('dynamic_model' in kwargs) else Lin_Parker_99
         
         p_r = 5.0e3*gamma_P
         n_r = 12.1*gamma_n
