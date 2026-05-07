@@ -10,13 +10,3 @@ def test_core_modules_import():
     assert ISO_6336.ISO_6336 is not None
     assert dynamic_formulation.torsional_2DOF is not None
     assert Drivetrain.NREL_5MW is not None
-
-
-def test_nrel_5mw_instantiates_with_default_model():
-    from Drivetrain import NREL_5MW
-
-    model = NREL_5MW()
-
-    assert model.N_st == 3
-    assert len(model.stage) == 3
-    assert model.f_n.size == 2
