@@ -4,9 +4,8 @@ Created on Fri Mar 27 14:04:56 2020
 
 @author: geraldod
 """
-from numpy import pi, sin, cos, argsort, sqrt, iscomplex, real
-from numpy import array, diag, argsort, zeros, zeros_like, eye, ones, allclose, argmax, hstack, vstack, block
-from scipy.linalg import eig, eigh, cholesky, inv, block_diag
+import numpy as np
+import scipy.linalg as la
 
 from Gear import GearSet
 # import Drivetrain
@@ -27,24 +26,24 @@ class model:
         
     def modal_analysis(self):
         
-        eig_val, mode_shape = eig(self.K, self.M, right = True)
+        eig_val, mode_shape = la.eig(self.K, self.M, right = True)
 
-        if(not any(iscomplex(eig_val))):
-            eig_val = real(eig_val)
+        if(not any(np.iscomplex(eig_val))):
+            eig_val = np.real(eig_val)
         else:
             print('At least one complex eigenvalue detected during the calculation of the symmetric undamped eigenvalue problem.')
         
         # lambda to omega_n:
-        omega_n = sqrt(eig_val)
+        omega_n = np.sqrt(eig_val)
         # omega_n to Hz:
-        f_n = omega_n/(2.0*pi)
+        f_n = omega_n/(2.0*np.pi)
         
-        idx = argsort(f_n)
+        idx = np.argsort(f_n)
         f_n = f_n[idx]
         mode_shape = mode_shape[:, idx]
         
         for i in range(len(f_n)):
-            j = argmax(abs(mode_shape[:, i]))
+            j = np.argmax(abs(mode_shape[:, i]))
             mode_shape[:, i] = mode_shape[:, i]/mode_shape[j, i]
 
         return {
@@ -74,7 +73,7 @@ class torsional_2DOF(model):
 
         U = DT.u[-1]
         
-        M = diag([J_R, J_G*U**2])
+        M = np.diag([J_R, J_G*U**2])
         
         return M
 
@@ -87,7 +86,7 @@ class torsional_2DOF(model):
             
         k = (k_LSS*k_HSS*U**2)/(k_LSS + k_HSS*U**2)
         
-        K = k*array([[ 1.0, -1.0],
+        K = k*np.array([[ 1.0, -1.0],
                      [-1.0,  1.0]])
         
         return K
@@ -123,7 +122,7 @@ class Kahraman_94(model):
         
         N = self.n_DOF
 
-        M = zeros((N[-1], N[-1]))
+        M = np.zeros((N[-1], N[-1]))
 
         M[0 , 0 ] = DT.J_Rotor # [kg-m^2], Rotor inertia
         M[-1, -1] = DT.J_Gen   # [kg-m^2], Generator inertia
@@ -147,7 +146,7 @@ class Kahraman_94(model):
             J_p = stage.J_x[0]
             J_w = stage.J_x[1]
             
-            M = diag([J_w, J_p, 0.0])
+            M = np.diag([J_w, J_p, 0.0])
             
         elif(stage.configuration == 'planetary'):
             J_c = stage.carrier.J_x
@@ -159,7 +158,7 @@ class Kahraman_94(model):
             d.append(J_s)
             d.append(0.0)
             
-            M = diag(d)
+            M = np.diag(d)
         
         M[-2:, -2:] += stage.output_shaft.inertia_matrix('torsional')
         
@@ -170,7 +169,7 @@ class Kahraman_94(model):
         DT = self.drivetrain
         N = self.n_DOF
                 
-        K = zeros((N[-1], N[-1]))
+        K = np.zeros((N[-1], N[-1]))
 
         i = 0
         sub_range = slice(N[i], N[i + 1])
@@ -188,19 +187,19 @@ class Kahraman_94(model):
     def __stage_stiffness_matrix(stage):
         if(stage.configuration == 'parallel'):
             N = 3
-            K = zeros((N, N))
+            K = np.zeros((N, N))
 
             r_p = stage.d[0]*1.0e-3/2.0
             r_w = stage.d[1]*1.0e-3/2.0
             
             k = stage.k_mesh
             
-            K[0:2, 0:2] = k*array([[    r_w**2, r_p*r_w],
+            K[0:2, 0:2] = k*np.array([[    r_w**2, r_p*r_w],
                                    [r_p*r_w   , r_p**2]])
             
         elif(stage.configuration == 'planetary'):
             N = stage.N_p + 3
-            K = zeros((N, N))
+            K = np.zeros((N, N))
             
             k_1 = stage.sub_set('planet-ring').k_mesh
             k_2 = stage.sub_set('sun-planet').k_mesh
@@ -214,16 +213,16 @@ class Kahraman_94(model):
             d.append(stage.N_p*k_2*r_s**2)
             d.append(0.0)
 
-            pla_lin     = ones(stage.N_p + 1)*r_c*r_p*(k_1 - k_2)
+            pla_lin     = np.ones(stage.N_p + 1)*r_c*r_p*(k_1 - k_2)
             pla_lin[-1] = -3.0*k_2*r_s*r_c
-            pla_col     = ones(stage.N_p    )*k_2*r_p*r_s
+            pla_col     = np.ones(stage.N_p    )*k_2*r_p*r_s
             
             i = stage.N_p + 1
             i1 = i + 1
             K[0, 1:i1] = pla_lin
             K[1:i, -2] = pla_col 
             K += K.T
-            K += diag(d)
+            K += np.diag(d)
 
         K[-2:, -2:] += stage.output_shaft.stiffness_matrix('torsional')
 
@@ -279,9 +278,9 @@ class Lin_Parker_99_mod(model):
 
         N = self.n_DOF
         
-        M = zeros((N[-1], N[-1]))
-        M[:3,  :3 ] = diag([m_R, m_R, J_R]) # Rotor inertia matrix
-        M[-3:, -3:] = diag([m_G, m_G, J_G]) # Generator inertia matrix
+        M = np.zeros((N[-1], N[-1]))
+        M[:3,  :3 ] = np.diag([m_R, m_R, J_R]) # Rotor inertia matrix
+        M[-3:, -3:] = np.diag([m_G, m_G, J_G]) # Generator inertia matrix
 
         i = 0
         sub_range = slice(N[i], N[i + 1])
@@ -298,7 +297,7 @@ class Lin_Parker_99_mod(model):
     @staticmethod
     def __stage_inertia_matrix(stage):
 
-        M_ = lambda m, J: diag([m, m, J])
+        M_ = lambda m, J: np.diag([m, m, J])
 
         if(stage.configuration == 'parallel'):
 
@@ -315,7 +314,7 @@ class Lin_Parker_99_mod(model):
             d.append( M_(stage.mass[0], stage.J_x[0]))         # sun
             d.append( M_(  0,   0))                            # output shaft
 
-        M = block_diag(*d)
+        M = la.block_diag(*d)
         
         M[-6:, -6:] += stage.output_shaft.inertia_matrix('Lin_Parker_99')*0
         
@@ -326,9 +325,9 @@ class Lin_Parker_99_mod(model):
         
         N = self.n_DOF
         
-        K_b     = zeros((N[-1], N[-1]))
-        K_m     = zeros_like(K_b)
-        K_Omega = zeros_like(K_b)
+        K_b     = np.zeros((N[-1], N[-1]))
+        K_m     = np.zeros_like(K_b)
+        K_Omega = np.zeros_like(K_b)
 
         i = 0
         sub_range = slice(N[i], N[i + 1])
@@ -351,45 +350,45 @@ class Lin_Parker_99_mod(model):
     def __stage_stiffness_matrix(stage):
 
         # Bearing stiffness sub-matrix:
-        K_b_ = lambda x, y: diag([x, y, 0])
+        K_b_ = lambda x, y: np.diag([x, y, 0])
         
         alpha_n = stage.alpha_n
 
-        psi   = lambda i: (i - 1)*(2*pi/stage.N_p)
+        psi   = lambda i: (i - 1)*(2*np.pi/stage.N_p)
         psi_s = lambda i: psi(i) - alpha_n
         # psi_r = lambda i: psi(i) + alpha_n
         # sun-sun mesh-stiffness matrix:
-        K_s1 = lambda k, i: k*array([[               sin(psi_s(i))**2, -cos(psi_s(i))*sin(psi_s(i)), -sin(psi_s(i))],
-                                     [-cos(psi_s(i))*sin(psi_s(i))   ,  cos(psi_s(i))**2           ,  cos(psi_s(i))],
-                                     [-              sin(psi_s(i))   ,  cos(psi_s(i))              ,         1     ]])
+        K_s1 = lambda k, i: k*np.array([[               np.sin(psi_s(i))**2, -np.cos(psi_s(i))*np.sin(psi_s(i)), -np.sin(psi_s(i))],
+                                     [-np.cos(psi_s(i))*np.sin(psi_s(i))   ,  np.cos(psi_s(i))**2           ,  np.cos(psi_s(i))],
+                                     [-              np.sin(psi_s(i))   ,  np.cos(psi_s(i))              ,         1     ]])
         # sun-planet mesh-stiffness matrix:
-        K_s2 = lambda k, i: k*array([[ sin(psi_s(i))*sin(alpha_n),  sin(psi_s(i))*cos(alpha_n), -sin(psi_s(i))],
-                                     [-cos(psi_s(i))*sin(alpha_n), -cos(psi_s(i))*cos(alpha_n),  cos(psi_s(i))],
-                                     [-              sin(alpha_n), -              cos(alpha_n),         1     ]])
+        K_s2 = lambda k, i: k*np.array([[ np.sin(psi_s(i))*np.sin(alpha_n),  np.sin(psi_s(i))*np.cos(alpha_n), -np.sin(psi_s(i))],
+                                     [-np.cos(psi_s(i))*np.sin(alpha_n), -np.cos(psi_s(i))*np.cos(alpha_n),  np.cos(psi_s(i))],
+                                     [-              np.sin(alpha_n), -              np.cos(alpha_n),         1     ]])
         # planet-planet [?] mesh-stiffness matrix:
-        K_s3 = lambda k   : k*array([[ sin(alpha_n)**2          ,  sin(alpha_n)*cos(alpha_n), -sin(alpha_n)],
-                                     [ sin(alpha_n)*cos(alpha_n),  cos(alpha_n)**2          , -cos(alpha_n)],
-                                     [-sin(alpha_n)             , -cos(alpha_n)             ,        1     ]])
+        K_s3 = lambda k   : k*np.array([[ np.sin(alpha_n)**2          ,  np.sin(alpha_n)*np.cos(alpha_n), -np.sin(alpha_n)],
+                                     [ np.sin(alpha_n)*np.cos(alpha_n),  np.cos(alpha_n)**2          , -np.cos(alpha_n)],
+                                     [-np.sin(alpha_n)             , -np.cos(alpha_n)             ,        1     ]])
         # [?]
-        K_r3 = lambda k   : k*array([[ sin(alpha_n)**2          , -sin(alpha_n)*cos(alpha_n), -sin(alpha_n)],
-                                     [-sin(alpha_n)*cos(alpha_n),  cos(alpha_n)**2          ,  cos(alpha_n)],
-                                     [-sin(alpha_n)             ,  cos(alpha_n)             ,        1     ]])
+        K_r3 = lambda k   : k*np.array([[ np.sin(alpha_n)**2          , -np.sin(alpha_n)*np.cos(alpha_n), -np.sin(alpha_n)],
+                                     [-np.sin(alpha_n)*np.cos(alpha_n),  np.cos(alpha_n)**2          ,  np.cos(alpha_n)],
+                                     [-np.sin(alpha_n)             ,  np.cos(alpha_n)             ,        1     ]])
         # carrier-carrier bearing stiffness matrix:
-        K_c1 = lambda k, i: k*array([[ 1          , 0          , -sin(psi(i))],
-                                     [ 0          , 1          ,  cos(psi(i))],
-                                     [-sin(psi(i)), cos(psi(i)),        1    ]])
+        K_c1 = lambda k, i: k*np.array([[ 1          , 0          , -np.sin(psi(i))],
+                                     [ 0          , 1          ,  np.cos(psi(i))],
+                                     [-np.sin(psi(i)), np.cos(psi(i)),        1    ]])
         # carrier-planet bearing stiffness matrix:
-        K_c2 = lambda k, i: k*array([[-cos(psi(i)),  sin(psi(i)), 0],
-                                     [-sin(psi(i)), -cos(psi(i)), 0],
+        K_c2 = lambda k, i: k*np.array([[-np.cos(psi(i)),  np.sin(psi(i)), 0],
+                                     [-np.sin(psi(i)), -np.cos(psi(i)), 0],
                                      [ 0          , -1          , 0]])
         # [?]
         K_c3 = lambda x, y: K_b_(x, y)
         
         # From torsional to translational coordinates:
-        R_ = lambda r: diag([1, 1, r])
+        R_ = lambda r: np.diag([1, 1, r])
 
-        Z3 = zeros((3, 3))
-        I3 = eye(3)
+        Z3 = np.zeros((3, 3))
+        I3 = np.eye(3)
         if(stage.configuration == 'parallel'):
             # Bearing component:
             b_p  = stage.bearing[3:]
@@ -397,7 +396,7 @@ class Lin_Parker_99_mod(model):
             k_px = b_p.k_y
             k_py = b_p.k_z
 
-            K_b = block_diag(Z3,               # wheel
+            K_b = la.block_diag(Z3,               # wheel
                              K_b_(k_px, k_py), # pinion
                              Z3)               # shaft
 
@@ -408,13 +407,13 @@ class Lin_Parker_99_mod(model):
             k_wy = b_w.k_z
 
             k = stage.k_mesh
-            K_m = block([[K_s3(k) + K_c3(k_wx, k_wy), K_s2(k, 1)],
+            K_m = np.block([[K_s3(k) + K_c3(k_wx, k_wy), K_s2(k, 1)],
                          [K_s2(k, 1)                , K_s1(k, 1)]])
 
-            K_m = block_diag(K_m, Z3)
+            K_m = la.block_diag(K_m, Z3)
             
             # Centripetal component:
-            K_Omega = block_diag(K_b_(stage.mass[1], stage.mass[1]), # wheel
+            K_Omega = la.block_diag(K_b_(stage.mass[1], stage.mass[1]), # wheel
                                  K_b_(stage.mass[0], stage.mass[0]), # pinion
                                  Z3)                                 # shaft
 
@@ -422,7 +421,7 @@ class Lin_Parker_99_mod(model):
             r_p = stage.d[1]*1.0e-3/2
             r_w = stage.d[1]*1.0e-3/2
 
-            R = block_diag(R_(r_w), R_(r_p), I3)
+            R = la.block_diag(R_(r_w), R_(r_p), I3)
 
         elif(stage.configuration == 'planetary'):
             # Bearing component:
@@ -436,9 +435,9 @@ class Lin_Parker_99_mod(model):
 
             K_sb = Z3
 
-            np = 3*stage.N_p
-            K_b = block_diag(K_cb,            # carrier
-                             zeros((np, np)), # planet
+            n_planet_dof = 3*stage.N_p
+            K_b = la.block_diag(K_cb,            # carrier
+                             np.zeros((n_planet_dof, n_planet_dof)), # planet
                              K_sb,            # sun
                              Z3)              # shaft
 
@@ -453,11 +452,11 @@ class Lin_Parker_99_mod(model):
             k_py = b_p.k_z
 
             K_c = [K_c2(1, i + 1)*K_b_(k_px, k_py) for i in range(stage.N_p)]
-            K_c = hstack(K_c)
+            K_c = np.hstack(K_c)
             K_s = [K_s2(k_sp, i + 1)               for i in range(stage.N_p)]
-            K_s = vstack(K_s)
+            K_s = np.vstack(K_s)
 
-            K_m = zeros_like(K_b)
+            K_m = np.zeros_like(K_b)
             
             K_pp = K_c3(k_cx, k_cy) + K_r3(k_pr) + K_s3(k_sp)
 
@@ -474,10 +473,10 @@ class Lin_Parker_99_mod(model):
             d.append(sum_Ks)
             d.append(Z3)
 
-            K_m[ :3     ,  3:np + 3] = K_c
-            K_m[3:np + 3, -3:      ] = K_s
+            K_m[ :3     ,  3:n_planet_dof + 3] = K_c
+            K_m[3:n_planet_dof + 3, -3:      ] = K_s
             K_m += K_m.T
-            K_m += block_diag(*d)
+            K_m += la.block_diag(*d)
 
             # Centripetal component:
             d = [     K_b_(stage.carrier.mass, stage.carrier.mass)]                       # carrier
@@ -485,7 +484,7 @@ class Lin_Parker_99_mod(model):
             d.append( K_b_(stage.mass[0],      stage.mass[0]))                            # sun
             d.append(Z3)                                                                  # shaft
 
-            K_Omega = block_diag(*d)
+            K_Omega = la.block_diag(*d)
 
             # Torsional to translational:
             r_s = stage.d[0]*1.0e-3/2
@@ -497,7 +496,7 @@ class Lin_Parker_99_mod(model):
             d.append(R_(r_s))
             d.append(I3)
 
-            R = block_diag(*d)
+            R = la.block_diag(*d)
 
         # Torsional to translational:
         K_b     = R.T @ K_b     @ R
@@ -535,9 +534,9 @@ class Lin_Parker_99_mod(model):
             def __init__(self):
                 self.alpha_n = 24.6
                 self.a_w  = 176.8/2
-                self.mass = array([ 0.4,    0.66,   2.35])
-                self.J_x  = array([ 0.39,   0.61,   3.0 ])
-                self.d    = array([77.4,  100.3,  275.0 ])
+                self.mass = np.array([ 0.4,    0.66,   2.35])
+                self.J_x  = np.array([ 0.39,   0.61,   3.0 ])
+                self.d    = np.array([77.4,  100.3,  275.0 ])
                 self.carrier = dummy_carrier()
             
             def sub_set(self, opt):

@@ -15,12 +15,11 @@ Written by:
 """
 
 # import sys
-from numpy import pi, sin, tan, radians, isscalar, mean, eye, allclose, diag, \
-                  sqrt, zeros, array
+import numpy as np
 from scipy import interpolate
-from scipy.stats import hmean
-from scipy.linalg import block_diag
-from matplotlib.pyplot import gca
+import scipy.linalg as la
+import scipy.stats as stats
+import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 
 ###############################################################################
@@ -126,7 +125,7 @@ class Rack:
         self.h_FfP = self.h_fP - self.c_P  # [mm], Straight portion of the dedendum
         self.h_P   = self.h_aP + self.h_fP # [mm], Tooth depth
         self.h_wP  = self.h_P - self.c_P   # [mm], Common depth of rack and tooth
-        self.p     = pi*self.m             # [mm], Pitch
+        self.p     = np.pi*self.m             # [mm], Pitch
         self.s_P   = self.e_P              # [mm], Tooth thickness
         self.rho_fP = k_rho_fP*self.m      # [mm], Fillet radius
         
@@ -207,9 +206,9 @@ class Rack:
             print('The pressure angle is not 20.0 [deg.]')
         else:
             if((self.c_P <= 0.295*self.m) and (self.h_FfP == self.m)):
-                rho_fP_max = self.c_P/(1.0 - sin(radians(self.alpha_P)))
+                rho_fP_max = self.c_P/(1.0 - np.sin(np.radians(self.alpha_P)))
             elif((0.295*self.m < self.c_P) and (self.c_P <= 0.396*self.m)):
-                rho_fP_max = (pi*self.m/4.0 - self.h_fP*tan(radians(self.alpha_P)))/tan(radians(90.0 - self.alpha_P)/2.0)
+                rho_fP_max = (np.pi*self.m/4.0 - self.h_fP*np.tan(np.radians(self.alpha_P)))/np.tan(np.radians(90.0 - self.alpha_P)/2.0)
             
         return rho_fP_max
 
@@ -232,7 +231,7 @@ class Bearing:
             https://www.ntnu.edu/imt/lab/md-lab
     '''
     
-    def __init__(self, stiffness = zeros(6), damping = zeros(6), **kwargs):
+    def __init__(self, stiffness = np.zeros(6), damping = np.zeros(6), **kwargs):
         
         # [N/m],     Translational stiffness, x axis:
         self.k_x     = stiffness[0]
@@ -296,13 +295,13 @@ class Bearing:
         return len(self.k_x)
 
     def __getitem__(self, key):
-        return Bearing(array([self.k_x[key],
+        return Bearing(np.array([self.k_x[key],
                               self.k_y[key],
                               self.k_z[key],
                               self.k_alpha[key],
                               self.k_beta[key],
                               self.k_gamma[key]]),
-                       array([self.d_x[key],
+                       np.array([self.d_x[key],
                               self.d_y[key],
                               self.d_z[key],
                               self.d_alpha[key],
@@ -310,32 +309,32 @@ class Bearing:
                               self.d_gamma[key]]))
                              
     def series_association(self):
-        if(isscalar(self.k_x)):
+        if(np.isscalar(self.k_x)):
             print('Only one bearing.')
             return self
         else:
-            kx = hmean(self.k_x)    /self.k_x.size()
-            ky = hmean(self.k_y)    /self.k_y.size()
-            kz = hmean(self.k_z)    /self.k_z.size()
-            ka = hmean(self.k_alpha)/self.k_alpha.size()
-            kb = hmean(self.k_beta) /self.k_beta.size()
-            kg = hmean(self.k_gamma)/self.k_gamma.size()
+            kx = stats.hmean(self.k_x)    /self.k_x.size()
+            ky = stats.hmean(self.k_y)    /self.k_y.size()
+            kz = stats.hmean(self.k_z)    /self.k_z.size()
+            ka = stats.hmean(self.k_alpha)/self.k_alpha.size()
+            kb = stats.hmean(self.k_beta) /self.k_beta.size()
+            kg = stats.hmean(self.k_gamma)/self.k_gamma.size()
             
-            dx = hmean(self.d_x)    /self.d_x.size()
-            dy = hmean(self.d_y)    /self.d_y.size()
-            dz = hmean(self.d_z)    /self.d_z.size()
-            da = hmean(self.d_alpha)/self.d_alpha.size()
-            db = hmean(self.d_beta) /self.d_beta.size()
-            dg = hmean(self.d_gamma)/self.d_gamma.size()
+            dx = stats.hmean(self.d_x)    /self.d_x.size()
+            dy = stats.hmean(self.d_y)    /self.d_y.size()
+            dz = stats.hmean(self.d_z)    /self.d_z.size()
+            da = stats.hmean(self.d_alpha)/self.d_alpha.size()
+            db = stats.hmean(self.d_beta) /self.d_beta.size()
+            dg = stats.hmean(self.d_gamma)/self.d_gamma.size()
             
         k = [kx, ky, kz, ka, kb, kg]
         d = [dx, dy, dz, da, db, dg]
             
         return Bearing(k, d, name = ' / '.join(self.name), type = 'series', \
-                       OD = mean(self.OD), ID = mean(self.ID), B = mean(self.B))
+                       OD = np.mean(self.OD), ID = np.mean(self.ID), B = np.mean(self.B))
         
     def parallel_association(self):
-        if(isscalar(self.k_x)):
+        if(np.isscalar(self.k_x)):
             print('Only one bearing.')
             return self
         else:
@@ -353,22 +352,22 @@ class Bearing:
             db = sum(self.d_beta)
             dg = sum(self.d_gamma)
             
-        k = array([kx, ky, kz, ka, kb, kg])
-        d = array([dx, dy, dz, da, db, dg])
+        k = np.array([kx, ky, kz, ka, kb, kg])
+        d = np.array([dx, dy, dz, da, db, dg])
 
         return Bearing(k, d, name = ' / '.join(self.name), type = 'parallel', \
-                       OD = mean(self.OD), ID = mean(self.ID), B = mean(self.B))
+                       OD = np.mean(self.OD), ID = np.mean(self.ID), B = np.mean(self.B))
         
     def stiffness_matrix(self):
-        if(isscalar(self.k_x)):
-            return diag([self.k_x,     self.k_y,    self.k_z, 
+        if(np.isscalar(self.k_x)):
+            return np.diag([self.k_x,     self.k_y,    self.k_z, 
                          self.k_alpha, self.k_beta, self.k_gamma])
         else:
             print('Only one bearing.')
         
     def damping_matrix(self):
-        if(isscalar(self.d_x)):
-            return diag([self.d_x,     self.d_y,    self.d_z, 
+        if(np.isscalar(self.d_x)):
+            return np.diag([self.d_x,     self.d_y,    self.d_z, 
                          self.d_alpha, self.d_beta, self.d_gamma])
         else:
             print('Only one bearing.')
@@ -413,13 +412,13 @@ class Shaft:
         
         # secondary attributes:
         # [m**2], Cross section area:
-        self.A    = (pi/4.0)*(self.d*1.0e-3)**2
+        self.A    = (np.pi/4.0)*(self.d*1.0e-3)**2
         # [m**3], Volume:
         self.V    = self.A*self.L*1.0e-3
         # [kg], mass:
         self.mass = Material().rho*self.V
         # [m**4], Area moment of inertia (x axis, rot.):
-        self.I_x  = (pi/2.0)*(self.d*1.0e-3/2.0)**4
+        self.I_x  = (np.pi/2.0)*(self.d*1.0e-3/2.0)**4
         # [m**4], Area moment of inertia (y axis):
         self.I_y  = self.I_x/2.0
         # [m**4], Area moment of inertia (z axis):
@@ -442,7 +441,7 @@ class Shaft:
     
     def rectangle(self, C = (0, 0), color = 'r'):
        
-        ax = gca()
+        ax = plt.gca()
         rect = Rectangle(C, self.L, self.d, color = color, edgecolor = 'k', \
                          linestyle = '-', facecolor = color)
         
@@ -468,7 +467,7 @@ class Shaft:
         elif(option == 'bending'):
             k = E*self.I_y/(L**3)
         elif(option == 'full'):
-            k = array([self.stiffness('axial'),
+            k = np.array([self.stiffness('axial'),
                        self.stiffness('torsional'),
                        self.stiffness('bending')])
         else:
@@ -484,19 +483,19 @@ class Shaft:
         M = -1.0
         
         if(option == 'axial'):
-            M = eye(2)*2.0
+            M = np.eye(2)*2.0
             M[0, 1] = 1.0
             M[1, 0] = 1.0
             
             M = M*(self.mass/6.0)
         elif(option == 'torsional'):
-            M = eye(2)*2.0
+            M = np.eye(2)*2.0
             M[0, 1] = 1.0
             M[1, 0] = 1.0
             
             M = M*(rho*L*self.I_x/6.0)
         elif(option == 'bending'): # plane x-z
-            M = array([[ 156    ,  22 * L   ,   54    , -13 * L   ],
+            M = np.array([[ 156    ,  22 * L   ,   54    , -13 * L   ],
                        [  22 * L,   4 * L**2,   13 * L, - 3 * L**2],
                        [  54    ,  13 * L   ,  156    , -22 * L   ],
                        [- 13 * L, - 3 * L**2, - 22 * L,   4 * L**2]])
@@ -506,9 +505,9 @@ class Shaft:
             M_t = self.inertia_matrix('torsional')
             M_b = self.inertia_matrix('bending')
             
-            M = block_diag(M_a, M_t, M_b, M_b)
+            M = la.block_diag(M_a, M_t, M_b, M_b)
             
-            R = zeros((12, 12))
+            R = np.zeros((12, 12))
             R[ 1 - 1,  1 - 1] =  1
             R[ 2 - 1,  7 - 1] =  1
             R[ 3 - 1,  4 - 1] =  1
@@ -526,7 +525,7 @@ class Shaft:
         elif(option == 'Lin_Parker_99'):
             M = self.inertia_matrix('full')
             
-            R = zeros((12, 6))
+            R = np.zeros((12, 6))
             R[2  - 1, 1 - 1] = 1
             R[3  - 1, 2 - 1] = 1
             R[4  - 1, 3 - 1] = 1
@@ -550,19 +549,19 @@ class Shaft:
         K = -1.0
         
         if(option == 'axial'):
-            K = eye(2)
+            K = np.eye(2)
             K[0, 1] = -1.0
             K[1, 0] = -1.0
             
             K = K*(E*self.A/L)
         elif(option == 'torsional'):
-            K = eye(2)
+            K = np.eye(2)
             K[0, 1] = -1.0
             K[1, 0] = -1.0
             
             K = K*(G*self.I_x/L)
         elif(option == 'bending'): # plane x-z
-            K = array([[ 12    ,  6 * L   , -12    ,  6 * L   ],
+            K = np.array([[ 12    ,  6 * L   , -12    ,  6 * L   ],
                        [  6 * L,  4 * L**2, - 6 * L,  2 * L**2],
                        [-12    , -6 * L   ,  12    , -6 * L   ],
                        [  6 * L,  2 * L**2, - 6 * L,  4 * L**2]])
@@ -573,9 +572,9 @@ class Shaft:
             K_t = self.stiffness_matrix('torsional')
             K_b = self.stiffness_matrix('bending')
             
-            K = block_diag(K_a, K_t, K_b, K_b)
+            K = la.block_diag(K_a, K_t, K_b, K_b)
             
-            R = zeros((12, 12))
+            R = np.zeros((12, 12))
             R[ 1 - 1,  1 - 1] =  1
             R[ 2 - 1,  7 - 1] =  1
             R[ 3 - 1,  4 - 1] =  1
@@ -593,7 +592,7 @@ class Shaft:
         elif(option == 'Lin_Parker_99'):
             K = self.stiffness_matrix('full')
             
-            R = zeros((12, 6))
+            R = np.zeros((12, 6))
             R[ 2 - 1, 1 - 1] = 1
             R[ 3 - 1, 2 - 1] = 1
             R[ 4 - 1, 3 - 1] = 1
@@ -680,12 +679,12 @@ class Shaft:
         S_y = S_y*1.0e6
         
         # Distortion energy theory and ASME fatigue criteria:
-        val = (16.0/(pi*dd**3))*sqrt(4.0*(K_f*M_a/S_e)**2 + 3.0*(K_fs*T_a/S_e)**2 + \
+        val = (16.0/(np.pi*dd**3))*np.sqrt(4.0*(K_f*M_a/S_e)**2 + 3.0*(K_fs*T_a/S_e)**2 + \
                                      4.0*(K_f*M_m/S_y)**2 + 3.0*(K_fs*T_m/S_y)**2)
         n = 1.0/val # n is proportional to d**3 T**-1
         
         # Yielding factor of safety:
-        sigma_Max = sqrt(3.0*(16.0*T_m/(pi*dd**3)))
+        sigma_Max = np.sqrt(3.0*(16.0*T_m/(np.pi*dd**3)))
         
         n_y = S_y/sigma_Max
         
@@ -696,10 +695,10 @@ class Shaft:
 if(__name__ == '__main__'):
     # rack = Rack(type='A', m=60, alpha_P=20.0)
     # rack.print()
-    brg = Bearing(array([[0.0   , 1.50e10, 1.50e10, 0.0, 5.0e6, 5.0e6],
+    brg = Bearing(np.array([[0.0   , 1.50e10, 1.50e10, 0.0, 5.0e6, 5.0e6],
                          [4.06e8, 1.54e10, 1.54e10, 0.0, 0.0  , 0.0  ]]).T,
-                  array([[0.0   , 42000.0,	30600.0, 0.0, 34.3 , 47.8],
-                         [0.0   , 42000.0,	30600.0, 0.0, 34.3 , 47.8]]).T,
+                  np.array([[0.0   , 42000.0, 30600.0, 0.0, 34.3 , 47.8],
+                         [0.0   , 42000.0, 30600.0, 0.0, 34.3 , 47.8]]).T,
                          name = 'INP', type = ['CARB', 'SRB'], OD = [1750.0, 1220.0], 
                          ID = [1250.0, 750.0],B = [375, 365])
     

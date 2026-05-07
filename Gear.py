@@ -14,9 +14,8 @@ Written by:
 @author: geraldod
 """
 from math import floor, ceil
-from numpy import pi, sin, cos, tan, degrees, radians, arccos, arctan, abs
-from numpy import ndarray, sign, sqrt, printoptions, ones, mean, nan, array, zeros
-from matplotlib.pyplot import gca
+import numpy as np
+import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 import os
 
@@ -101,39 +100,39 @@ class Gear(Rack):
         
         # Secondary attributes:
         # [mm],     Transverse module:
-        self.m_t     = self.m_n/cos(radians(self.beta))
+        self.m_t     = self.m_n/np.cos(np.radians(self.beta))
         # [deg.],   Transverse pressure angle:
-        self.alpha_t = degrees(arctan(tan(radians(self.alpha_n))/cos(radians(self.beta))))
+        self.alpha_t = np.degrees(np.arctan(np.tan(np.radians(self.alpha_n))/np.cos(np.radians(self.beta))))
         # [deg.],   Base helix angle:
-        self.beta_b  = degrees(arctan(tan(radians(self.beta))*cos(radians(self.alpha_t))))
+        self.beta_b  = np.degrees(np.arctan(np.tan(np.radians(self.beta))*np.cos(np.radians(self.alpha_t))))
         # [mm],     Transverse pitch:
-        self.p_t     = pi*self.m_t
+        self.p_t     = np.pi*self.m_t
         # [mm],     Transverse base pitch:
-        self.p_bt    = self.p_t*cos(radians(self.alpha_t))
+        self.p_bt    = self.p_t*np.cos(np.radians(self.alpha_t))
         # [mm],     Transverse base pitch on the path of contact:
         self.p_et    = self.p_bt
         # [mm],     Tooth depth:
         self.h       = self.h_aP + self.k*self.m_n + self.h_fP
         # [mm],     Reference diameter:
-        self.d       = abs(self.z)*self.m_t
+        self.d       = np.abs(self.z)*self.m_t
         # [mm],     Tip diameter:
-        self.d_a     = self.d + 2.0*sign(self.z)*(self.x*self.m_n + self.h_aP + self.k*self.m_n)
+        self.d_a     = self.d + 2.0*np.sign(self.z)*(self.x*self.m_n + self.h_aP + self.k*self.m_n)
         # [mm],     Base diameter:
-        self.d_b     = self.d*cos(radians(self.alpha_t))
+        self.d_b     = self.d*np.cos(np.radians(self.alpha_t))
         # [mm],     Root diameter:
-        self.d_f     = self.d - 2.0*sign(self.z)*(self.h_fP - self.x*self.m_n)
+        self.d_f     = self.d - 2.0*np.sign(self.z)*(self.h_fP - self.x*self.m_n)
         # [mm],     Mean tooth diameter:
         self.d_m     = (self.d_a + self.d_f)/2.0
         # [mm],     Bore diameter:
         self.d_bore  = self.bore_ratio*self.d
         # [-],      Virtual number of teeth:
-        self.z_n     = self.z/(cos(radians(self.beta))*cos(radians(self.beta_b))**2)
+        self.z_n     = self.z/(np.cos(np.radians(self.beta))*np.cos(np.radians(self.beta_b))**2)
         
         r_out = (self.d_a + self.d_f)/4.0
         r_ins = self.d_bore/2.0
         
         # [m**3],    Volume:
-        self.V       = self.b*pi*(r_out**2 - r_ins**2)*1.0e-9
+        self.V       = self.b*np.pi*(r_out**2 - r_ins**2)*1.0e-9
         # [kg],      Mass:
         self.mass    = Material().rho*self.V
         # [kg-m**2], Mass moment of inertia (x axis, rot.):
@@ -156,7 +155,7 @@ class Gear(Rack):
 
     def rectangle(self, C = (0, 0), color = 'r'):
        
-        ax = gca()
+        ax = plt.gca()
         rect = Rectangle(C, self.b, self.d, color = color, edgecolor = 'k', \
                          linestyle = '-', facecolor = color)
         
@@ -166,7 +165,7 @@ class Gear(Rack):
         '''
         Working pitch diameter, [mm]
         '''
-        return self.d_b/cos(radians(alpha_wt))
+        return self.d_b/np.cos(np.radians(alpha_wt))
     
     @staticmethod
     def __interval_calc(interval, x):
@@ -193,17 +192,17 @@ class Gear(Rack):
         '''
         
         flag = False
-        if(not isinstance(x, (list, ndarray))):
+        if(not isinstance(x, (list, np.ndarray))):
             x = [x]
             flag = True
         
-        val = zeros(len(x))
+        val = np.zeros(len(x))
         
         for idx in range(len(x)):
             jdx = 1
             while(jdx < len(interval)):
                 if(interval[jdx - 1] <= x[idx] <= interval[jdx]):
-                    val[idx] = sqrt(interval[jdx - 1]*interval[jdx])
+                    val[idx] = np.sqrt(interval[jdx - 1]*interval[jdx])
                     break
                 jdx += 1
         
@@ -263,12 +262,12 @@ class GearSet(Gear):
         m_n        = kwargs['m_n']        if('m_n'        in kwargs) else 1.0
         alpha_n    = kwargs['alpha_n']    if('alpha_n'    in kwargs) else 20.0
         rack_type  = kwargs['rack_type']  if('rack_type'  in kwargs) else 'A'
-        z          = kwargs['z']          if('z'          in kwargs) else 13*ones(2)
-        b          = kwargs['b']          if('b'          in kwargs) else 13.0*ones(2)
-        x          = kwargs['x']          if('x'          in kwargs) else zeros(2)
+        z          = kwargs['z']          if('z'          in kwargs) else 13*np.ones(2)
+        b          = kwargs['b']          if('b'          in kwargs) else 13.0*np.ones(2)
+        x          = kwargs['x']          if('x'          in kwargs) else np.zeros(2)
         beta       = kwargs['beta']       if('beta'       in kwargs) else 0.0
-        k          = kwargs['k']          if('k'          in kwargs) else zeros(2)
-        bore_ratio = kwargs['bore_ratio'] if('bore_ratio' in kwargs) else 0.5*ones(2)
+        k          = kwargs['k']          if('k'          in kwargs) else np.zeros(2)
+        bore_ratio = kwargs['bore_ratio'] if('bore_ratio' in kwargs) else 0.5*np.ones(2)
         
         if((len(z) != len(x)) and (len(x) != len(k)) and (len(k) != len(bore_ratio))):
             raise Exception('The lengths of z, x, k and bore ratio should be equal.')
@@ -276,7 +275,7 @@ class GearSet(Gear):
         if(len(z) < 2):
             raise Exception('There should be at least two gears.')
         elif(len(z) == 3):
-            z[2] = -abs(z[2]) # because the ring is an internal gear
+            z[2] = -np.abs(z[2]) # because the ring is an internal gear
 
         # calling the parent constructor:
         super().__init__(m_n = m_n,
@@ -303,8 +302,8 @@ class GearSet(Gear):
         # [-], ISO accuracy grade:
         self.Q             = kwargs['Q']             if('Q'             in kwargs) else 6.0
         
-        r_out = zeros(len(self.z))
-        r_ins = zeros(len(self.z))
+        r_out = np.zeros(len(self.z))
+        r_ins = np.zeros(len(self.z))
         for idx, zz in enumerate(self.z):
             if(zz > 0.0):
                 r_out[idx] = (self.d_a[idx] + self.d_f[idx])/4.0
@@ -314,7 +313,7 @@ class GearSet(Gear):
                 r_out[idx] = self.d_bore[idx]/2.0
         
         # [m**3],    Volume:
-        self.V       = self.b*pi*(r_out**2 - r_ins**2)*1.0e-9
+        self.V       = self.b*np.pi*(r_out**2 - r_ins**2)*1.0e-9
         # [kg],      Mass:
         self.mass    = Material().rho*self.V
         # [kg-m**2], Mass moment of inertia (x axis, rot.):
@@ -327,7 +326,7 @@ class GearSet(Gear):
         # Geometric mean for parameters according to Sec. 5.3 of ISO 1328-1 [2]:
         # inspired on the accepted answer in:
         # https://stackoverflow.com/questions/2236906/first-python-list-index-greater-than-x
-        geo_mean = lambda r, x: next(sqrt(r[i - 1]*r[i]) 
+        geo_mean = lambda r, x: next(np.sqrt(r[i - 1]*r[i]) 
                                          for i, v in enumerate(sorted(r)) 
                                          if v > x)
         
@@ -338,29 +337,29 @@ class GearSet(Gear):
         range_m = [0.0, 0.5, 2.0, 3.5, 6.0, 10.0, 16.0, 25.0, 40.0, 70.0]
         
         b_int =        geo_mean(range_b,               self.b)
-        d_int = array([geo_mean(range_d, dd) for dd in self.d])
+        d_int = np.array([geo_mean(range_d, dd) for dd in self.d])
         m_int =        geo_mean(range_m,               self.m_n)
         
         # Single pitch deviation according to Section 6.1 of ISO 1328-1 [2]:
-        f_pt = 0.3*(m_int + 0.4*sqrt(d_int)) + 4.0
+        f_pt = 0.3*(m_int + 0.4*np.sqrt(d_int)) + 4.0
         self.f_pt = self.__round_ISO(f_pt, self.Q)
         # Total cumulative pitch deviation according to Sec. 6.3 of ISO 1328-1 [2]:
-        F_p = 0.3*m_int + 1.25*sqrt(d_int) + 7.0
+        F_p = 0.3*m_int + 1.25*np.sqrt(d_int) + 7.0
         self.F_p = self.__round_ISO(F_p, self.Q)
         # Total profile deviation according to Section 6.4 of ISO 1328-1 [2]:
-        F_alpha = 3.2*sqrt(m_int) + 0.22*sqrt(d_int) + 0.7
+        F_alpha = 3.2*np.sqrt(m_int) + 0.22*np.sqrt(d_int) + 0.7
         self.F_alpha = self.__round_ISO(F_alpha, self.Q)
         # Total helix deviation according to Section 6.5 of ISO 1328-1 [2]:
-        f_beta = 0.1*sqrt(d_int) + 0.63*sqrt(b_int) + 4.2
+        f_beta = 0.1*np.sqrt(d_int) + 0.63*np.sqrt(b_int) + 4.2
         self.f_beta = self.__round_ISO(f_beta, self.Q)
         # Profile form deviation according to App. B.2.1 of ISO 1328-1 [2]:
-        f_falpha = 2.5*sqrt(m_int) + 0.17*sqrt(d_int) + 0.5
+        f_falpha = 2.5*np.sqrt(m_int) + 0.17*np.sqrt(d_int) + 0.5
         self.f_falpha = self.__round_ISO(f_falpha, self.Q)
         # Profile slope deviation according to App. B.2.2 of ISO 1328-1 [2]:
-        f_Halpha = 2.0*sqrt(m_int) + 0.14*sqrt(d_int) + 0.5
+        f_Halpha = 2.0*np.sqrt(m_int) + 0.14*np.sqrt(d_int) + 0.5
         self.f_Halpha = self.__round_ISO(f_Halpha, self.Q)
         # Helix form deviation according to App. B.2.3 of ISO 1328-1 [2]:
-        f_fbeta = (0.07*sqrt(d_int) + 0.45*sqrt(b_int) + 3.0)
+        f_fbeta = (0.07*np.sqrt(d_int) + 0.45*np.sqrt(b_int) + 3.0)
         self.f_fbeta = self.__round_ISO(f_fbeta, self.Q)
         # Helix slope deviation according to App. B.2.3 of ISO 1328-1 [2]:
         self.f_Hbeta = self.f_fbeta
@@ -384,7 +383,7 @@ class GearSet(Gear):
         # [-],         Transverse contact ratio:
         self.eps_alpha     = self.__transverse_contact_ratio()
         # [-],         Overlap ratio:
-        self.eps_beta      = mean(self.b)*sin(radians(self.beta))/(pi*self.m_n)
+        self.eps_beta      = np.mean(self.b)*np.sin(np.radians(self.beta))/(np.pi*self.m_n)
         # [-],         Total contact ratio:
         self.eps_gamma     = self.eps_alpha + self.eps_beta
         # [N/(mm-um)], Mean value of mesh stiffness per unit face witdh (used for K_v, K_Halpha, K_Falpha):
@@ -394,7 +393,7 @@ class GearSet(Gear):
         # [N/(mm-um)], Mean value of mesh stiffness per unit face witdh:
         self.c_gamma       = self.c_gamma_alpha + self.c_gamma_beta
         # [N/m],       Mean value of mesh stiffness:
-        self.k_mesh        = self.c_gamma*mean(self.b)*1.0e6
+        self.k_mesh        = self.c_gamma*np.mean(self.b)*1.0e6
         
         if(self.configuration == 'planetary'):
             # [-], planet carrier:
@@ -402,7 +401,7 @@ class GearSet(Gear):
             # gear ratio of sun-planet mesh:
             self.u_12    =     self.z[1]/self.z[0]
             # gear ratio of planet-ring mesh:
-            self.u_23    = abs(self.z[2])/self.z[1]
+            self.u_23    = np.abs(self.z[2])/self.z[1]
             # note that: u = 1 + u_12 * u_23
     
     def __repr__(self):
@@ -415,7 +414,7 @@ class GearSet(Gear):
 
         '''
 
-        with printoptions(precision = 3):
+        with np.printoptions(precision = 3):
             val = ('Gear ratio,                            u       = {:7.3f} -\n'.format(self.u) +
                    'Number of elements,                    p       = {:7} -\n'.format(self.N_p) +
                    'Normal module,                         m_n     = {:7.3f} mm\n'.format(self.m_n) +
@@ -507,15 +506,15 @@ class GearSet(Gear):
         ks.SetVar('ZS.AnzahlZwi', '{}'.format(             self.N_p))      # number of planets
         ks.SetVar('ZS.Geo.mn'   , '{:.6f}'.format(        self.m_n))      # normal module
         ks.SetVar('ZP[0].a'     , '{:.6f}'.format(        self.a_w))      # center distance
-        ks.SetVar('ZS.Geo.alfn' , '{:.6f}'.format(radians(self.alpha_n))) # normal pressure angle
-        ks.SetVar('ZS.Geo.beta' , '{:.6f}'.format(radians(self.beta)))    # helix angle
+        ks.SetVar('ZS.Geo.alfn' , '{:.6f}'.format(np.radians(self.alpha_n))) # normal pressure angle
+        ks.SetVar('ZS.Geo.beta' , '{:.6f}'.format(np.radians(self.beta)))    # helix angle
         
         ks.SetVar('RechSt.GeometrieMeth', '{}'.format(geo_meth)) # tooth geometry according to [6]
         
         R_a    = 0.8 # [um], Maximum arithmetic mean roughness for external gears according to [5], Sec. 7.2.7.2.
         
         for idx, zz in enumerate(self.z):
-            ks.SetVar('ZR[{}].z'.format(idx),     '{}'.format(abs(zz)))
+            ks.SetVar('ZR[{}].z'.format(idx),     '{}'.format(np.abs(zz)))
             ks.SetVar('ZR[{}].x.nul'.format(idx), '{:.6f}'.format(self.x[idx]))
             ks.SetVar('ZR[{}].b'.format(idx),     '{:.6f}'.format(self.b))
             ks.SetVar('ZR[{}].Tool.type'.format(idx), '2')
@@ -597,9 +596,9 @@ class GearSet(Gear):
 
     def __gear_ratio(self):
         if(self.configuration == 'parallel'):
-            val = abs(self.z[1])/self.z[0]
+            val = np.abs(self.z[1])/self.z[0]
         elif(self.configuration == 'planetary'):
-            val = 1.0 + abs(self.z[2])/self.z[0]
+            val = 1.0 + np.abs(self.z[2])/self.z[0]
         else:
             raise Exception('Configuration [{}] is NOT defined.'.format(self.configuration.upper()))
         
@@ -633,10 +632,10 @@ class GearSet(Gear):
         [6] ISO 21771.
         '''
         
-        num = self.m_n*cos(radians(self.alpha_t))
-        den = 2.0*self.a_w*cos(radians(self.beta))
+        num = self.m_n*np.cos(np.radians(self.alpha_t))
+        den = 2.0*self.a_w*np.cos(np.radians(self.beta))
 
-        ang = degrees(arccos(abs(sum(self.z[:2]))*num/den))
+        ang = np.degrees(np.arccos(np.abs(sum(self.z[:2]))*num/den))
 
         if(ang > 90.0):
             ang = 180 - ang
@@ -662,7 +661,7 @@ class GearSet(Gear):
 
         C_B = 0.5*(C_B1 + C_B2) # 0.975
         
-        return self.cprime_th*C_M*C_R*C_B*cos(radians(self.beta))
+        return self.cprime_th*C_M*C_R*C_B*np.cos(np.radians(self.beta))
     
     def __transverse_contact_ratio(self):
         '''
@@ -682,22 +681,22 @@ class GearSet(Gear):
 
         '''
 
-        xi_Nfw1 = zeros(3)
-        xi_Nfw2 = zeros(3)
+        xi_Nfw1 = np.zeros(3)
+        xi_Nfw2 = np.zeros(3)
         
         # roll angles from the root form diameter to the working pitch point, 
         # limited by the:
         # (1) base diameters: Eq. (33)
-        xi_Nfw1[0] = tan(radians(self.alpha_wt))
+        xi_Nfw1[0] = np.tan(np.radians(self.alpha_wt))
         xi_Nfw2[0] = xi_Nfw1[0]
         
         # (2) root form diameters: Eq. (34-35)
-        xi_Nfw1[1] = xi_Nfw1[0] - tan(arccos(self.d_b[0]/self.d_Nf[0]))
-        xi_Nfw2[1] = xi_Nfw2[0] - tan(arccos(self.d_b[1]/self.d_Nf[1]))
+        xi_Nfw1[1] = xi_Nfw1[0] - np.tan(np.arccos(self.d_b[0]/self.d_Nf[0]))
+        xi_Nfw2[1] = xi_Nfw2[0] - np.tan(np.arccos(self.d_b[1]/self.d_Nf[1]))
 
         # (3) active tip diameters of the wheel/pinion: Eq. (36-37)
-        xi_Nfw1[2] = (tan(arccos(self.d_b[1]/self.d_Na[1])) - xi_Nfw1[0])*self.z[1]/self.z[0]
-        xi_Nfw2[2] = (tan(arccos(self.d_b[0]/self.d_Na[0])) - xi_Nfw2[0])*self.z[0]/self.z[1]
+        xi_Nfw1[2] = (np.tan(np.arccos(self.d_b[1]/self.d_Na[1])) - xi_Nfw1[0])*self.z[1]/self.z[0]
+        xi_Nfw2[2] = (np.tan(np.arccos(self.d_b[0]/self.d_Na[0])) - xi_Nfw2[0])*self.z[0]/self.z[1]
 
         # xi_Nfw1 = array([i for i in xi_Nfw1 if i > 0])
         # xi_Nfw2 = array([i for i in xi_Nfw2 if i > 0])
@@ -713,7 +712,7 @@ class GearSet(Gear):
         xi_Naw1 = xi_Nfw2*self.z[1]/self.z[0]
 
         # pinion angular pitch:
-        tau_1 = 2.0*pi/self.z[0]
+        tau_1 = 2.0*np.pi/self.z[0]
 
         # Eq. (32)
         return (xi_Nfw1 + xi_Naw1)/tau_1
@@ -736,30 +735,30 @@ class GearSet(Gear):
 
         '''
         # Sec. A.1, Eq. (A.5)
-        B = lambda x: (self.h_fP - x*self.m_n + self.rho_fP*(sin(radians(self.alpha_n)) - 1.0))
+        B = lambda x: (self.h_fP - x*self.m_n + self.rho_fP*(np.sin(np.radians(self.alpha_n)) - 1.0))
         # Sec. A.3, Eq. (A.10)
-        d_soi = lambda i: 2.0*sqrt((self.d[i]/2.0 - B(self.x[i]))**2 + (B(self.x[i])/tan(radians(self.alpha_t)))**2)
+        d_soi = lambda i: 2.0*np.sqrt((self.d[i]/2.0 - B(self.x[i]))**2 + (B(self.x[i])/np.tan(np.radians(self.alpha_t)))**2)
         
-        xi_fw1 = zeros(3)
-        xi_fw2 = zeros(3)
+        xi_fw1 = np.zeros(3)
+        xi_fw2 = np.zeros(3)
         
         # roll angles from the root form diameter to the working pitch point, 
         # limited by the:
         # (1) base diameters: Eq. (28)
-        xi_fw1[0] = tan(radians(self.alpha_wt))
-        xi_fw2[0] = tan(radians(self.alpha_wt))
+        xi_fw1[0] = np.tan(np.radians(self.alpha_wt))
+        xi_fw2[0] = np.tan(np.radians(self.alpha_wt))
         
         # (2) root form diameters: Eq. (29-30)
-        xi_fw1[1] = xi_fw1[0] - tan(arccos(self.d_b[0]/d_soi(0)))
-        xi_fw2[1] = xi_fw2[0] - tan(arccos(self.d_b[1]/d_soi(1)))
+        xi_fw1[1] = xi_fw1[0] - np.tan(np.arccos(self.d_b[0]/d_soi(0)))
+        xi_fw2[1] = xi_fw2[0] - np.tan(np.arccos(self.d_b[1]/d_soi(1)))
 
         # (3) tip diameters of the wheel/pinion: Eq. (31-32)
-        xi_fw1[2] = (tan(arccos(self.d_b[1]/self.d_a[1])) - xi_fw1[0])*(self.z[1]/self.z[0])
-        xi_fw2[2] = (tan(arccos(self.d_b[0]/self.d_a[0])) - xi_fw2[0])*(self.z[0]/self.z[1])
+        xi_fw1[2] = (np.tan(np.arccos(self.d_b[1]/self.d_a[1])) - xi_fw1[0])*(self.z[1]/self.z[0])
+        xi_fw2[2] = (np.tan(np.arccos(self.d_b[0]/self.d_a[0])) - xi_fw2[0])*(self.z[0]/self.z[1])
        
         # Angles shouldn't be negative:
-        xi_fw1 = array([i for i in xi_fw1 if i > 0])
-        xi_fw2 = array([i for i in xi_fw2 if i > 0])
+        xi_fw1 = np.array([i for i in xi_fw1 if i > 0])
+        xi_fw2 = np.array([i for i in xi_fw2 if i > 0])
         
         if((xi_fw1.size == 0) or (xi_fw2.size == 0)):
             raise Exception('Auxiliary coefficients xi_fw are all negative.')
@@ -771,7 +770,7 @@ class GearSet(Gear):
         xi_aw1 = xi_fw2*self.z[1]/self.z[0]
 
         # pinion angular pitch: Eq. (34)
-        tau_1 = 2.0*pi/self.z[0]
+        tau_1 = 2.0*np.pi/self.z[0]
 
         # Eq. (27)
         return (xi_fw1 + xi_aw1)/tau_1
@@ -801,7 +800,7 @@ class GearSet(Gear):
         # 
         x *= pow(2.0, (Q - 5.0)/2.0)
         
-        val = zeros(len(x))
+        val = np.zeros(len(x))
         
         for idx in range(len(x)):
             xx = x[idx]
@@ -821,12 +820,12 @@ class GearSet(Gear):
     def example_01_ISO6336():
         return  GearSet(configuration = 'parallel',
                         m_n           = 8.0,
-                        z             = array([17, 103]),
+                        z             = np.array([17, 103]),
                         alpha_n       = 20.0,
                         beta          = 15.8,
                         b             = 100.0,
                         a_w           = 500.0,
-                        x             = array([0.145, 0.0]),
+                        x             = np.array([0.145, 0.0]),
                         rack_type     = 'D',
                         Q             = 5)
     
@@ -834,48 +833,48 @@ class GearSet(Gear):
         '''
         ISO 21771, Sec. 7.6, Eq. (128)
         '''
-        B = (self.h_fP - self.x*self.m_n + self.rho_fP*(sin(radians(self.alpha_n)) - 1.0))
-        return sqrt((self.d*sin(radians(self.alpha_t)) - 2.0*B/sin(radians(self.alpha_t)))**2 + self.d_b**2)
+        B = (self.h_fP - self.x*self.m_n + self.rho_fP*(np.sin(np.radians(self.alpha_n)) - 1.0))
+        return np.sqrt((self.d*np.sin(np.radians(self.alpha_t)) - 2.0*B/np.sin(np.radians(self.alpha_t)))**2 + self.d_b**2)
 
     def __SAP_diameter(self):
         '''
         ISO 21771, Sec. 5.4.1, Eqs. (64-67)
         '''
         d_Fa = self.d_a
-        dNf1 = sqrt((2.0*self.a_w*sin(radians(self.alpha_wt)) -sign(self.z[1])*sqrt(d_Fa[1]**2 -self.d_b[1]**2))**2 + self.d_b[0]**2)
-        dNf2 = sqrt((2.0*self.a_w*sin(radians(self.alpha_wt)) -                sqrt(d_Fa[0]**2 -self.d_b[0]**2))**2 + self.d_b[1]**2)
+        dNf1 = np.sqrt((2.0*self.a_w*np.sin(np.radians(self.alpha_wt)) -np.sign(self.z[1])*np.sqrt(d_Fa[1]**2 -self.d_b[1]**2))**2 + self.d_b[0]**2)
+        dNf2 = np.sqrt((2.0*self.a_w*np.sin(np.radians(self.alpha_wt)) -                np.sqrt(d_Fa[0]**2 -self.d_b[0]**2))**2 + self.d_b[1]**2)
         
         dNf = [dNf1, dNf2]
 
         if(self.configuration == 'planetary'):
-            dNf.append(nan)
+            dNf.append(np.nan)
         
         for i in range(len(self.z)):
             if(self.d_Ff[i] > dNf[i]):
                 dNf[i] = self.d_Ff[i]
 
-        return array(dNf)
+        return np.array(dNf)
 
     def __active_tip_diameter(self):
         '''
         ISO 21771, Sec. 5.4.1, Eqs. (68-69)
         '''
-        aw = 2.0*self.a_w*sin(radians(self.alpha_wt))
+        aw = 2.0*self.a_w*np.sin(np.radians(self.alpha_wt))
         if(self.d_Nf[0] == self.d_Ff[0]):
-            dNa2 = sqrt((aw -                 sqrt(self.d_Ff[0]**2 - self.d_b[0]**2))**2 + self.d_b[1]**2)
+            dNa2 = np.sqrt((aw -                 np.sqrt(self.d_Ff[0]**2 - self.d_b[0]**2))**2 + self.d_b[1]**2)
         else:
             dNa2 = self.d_a[1] # d_Fa
 
         if(self.d_Nf[1] == self.d_Ff[1]):
-            dNa1 = sqrt((aw - sign(self.z[1])*sqrt(self.d_Ff[1]**2 - self.d_b[1]**2))**2 + self.d_b[0]**2)
+            dNa1 = np.sqrt((aw - np.sign(self.z[1])*np.sqrt(self.d_Ff[1]**2 - self.d_b[1]**2))**2 + self.d_b[0]**2)
         else:
             dNa1 = self.d_a[0] # d_Fa
         
         dNa = [dNa1, dNa2]
         if(self.configuration == 'planetary'):
-            dNa.append(nan)
+            dNa.append(np.nan)
 
-        return array(dNa)
+        return np.array(dNa)
 
 ###############################################################################
 
@@ -907,7 +906,7 @@ class Carrier:
         # [mm],    Witdh:
         self.b    = 1.2*self.b_g
         # [m^3],  Volume:
-        self.V    = (pi/4.0)*(self.d_a**2 - self.d_f**2)*self.b*1.0e-9
+        self.V    = (np.pi/4.0)*(self.d_a**2 - self.d_f**2)*self.b*1.0e-9
         # [kg],    Mass:
         self.mass = Material().rho*self.V
         # [kg-m**2], Mass moment of inertia, (x axis, rot.):

@@ -7,7 +7,7 @@ Created on Mon Apr  6 15:03:51 2020
 
 from Drivetrain import NREL_5MW
 from dynamic_formulation import Kahraman_94, torsional_2DOF
-from matplotlib import pyplot
+import matplotlib.pyplot as plt
 
 if(__name__ == '__main__'):
     ref = NREL_5MW()
@@ -28,7 +28,7 @@ if(__name__ == '__main__'):
     print(val)
 
     # for i in range(14):
-    #     pyplot.plot(range(14), MS[:, i])
+    #     plt.plot(range(14), MS[:, i])
 
 
 

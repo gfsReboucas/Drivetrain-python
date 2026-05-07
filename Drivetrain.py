@@ -5,7 +5,7 @@ Created on Fri Mar 27 11:01:45 2020
 @author: geraldod
 """
 from json import dumps
-from numpy import array, pi, cumprod, printoptions, iscomplex, empty, hstack
+import numpy as np
 from components import Bearing, Shaft #, check_key
 from Gear import GearSet
 from dynamic_formulation import torsional_2DOF, Kahraman_94, Lin_Parker_99
@@ -58,14 +58,14 @@ class Drivetrain:
         self.gamma = dict.fromkeys(name, 1.0)
 
         # Safety factors for gear sets:
-        SH = array(0)
+        SH = np.array(0)
         for i in range(self.N_st):
             iso = ISO_6336(self.stage[i])
             SHi = iso.Pitting(P   = self.P_rated,
                               n_1 = self.n_out[i])
-            SH = hstack((SH, SHi))
+            SH = np.hstack((SH, SHi))
 
-        self.S_H = array(SH[1:])
+        self.S_H = np.array(SH[1:])
 
         # Dynamic model
         DM = self.dynamic_model(self)
@@ -77,7 +77,7 @@ class Drivetrain:
         conf = [self.stage[i].configuration for i in range(self.N_st)]
         ring = [i for i, v in enumerate(conf) if(v == 'planetary')]
         
-        with printoptions(precision = 3):
+        with np.printoptions(precision = 3):
             val = ('Rated power,                                  P       = {} kW\n'.format(self.P_rated) +
                    'Output Speed (Sun/Pinion),                    n_out   = {} 1/min.\n'.format(self.n_out) +
                    'Output Torque (Sun/Pinion),                   T_out   = {} N-m\n'.format(self.T_out) +
@@ -86,28 +86,28 @@ class Drivetrain:
                    'Safety factor against pitting (Planet/Wheel), S_H2    = {} -\n'.format('todo') +
                    'Safety factor (Shaft),                        S       = {} -\n'.format('todo') +
                    'Type,                                         -       = {} -\n'.format(conf) +
-                   'Gear ratio,                                   u       = {} -\n'.format(     array([self.stage[i].u       for i in range(self.N_st)])) +
-                   'Number of planets,                            p       = {} -\n'.format(     array([self.stage[i].N_p     for i in range(self.N_st)])) +
-                   'Normal module,                                m_n     = {} mm\n'.format(    array([self.stage[i].m_n     for i in range(self.N_st)])) +
-                   'Normal pressure angle,                        alpha_n = {} deg.\n'.format(  array([self.stage[i].alpha_n for i in range(self.N_st)])) +
-                   'Helix angle,                                  beta    = {} deg.\n'.format(  array([self.stage[i].beta    for i in range(self.N_st)])) +
-                   'Face width,                                   b       = {} mm\n'.format(    array([self.stage[i].b       for i in range(self.N_st)])) +
-                   'Center distance,                              a_w     = {} mm\n'.format(    array([self.stage[i].a_w     for i in range(self.N_st)])) +
-                   'Number of teeth (Sun/Pinion),                 z_1     = {} -\n'.format(     array([self.stage[i].z[0]    for i in range(self.N_st)])) +
-                   'Number of teeth (Planet/Wheel),               z_2     = {} -\n'.format(     array([self.stage[i].z[1]    for i in range(self.N_st)])) +
-                   'Number of teeth (Ring),                       z_3     = {} -\n'.format(     array([self.stage[i].z[2]    for i in ring])) +
-                   'Profile shift coefficient (Sun/Pinion),       x_1     = {} -\n'.format(     array([self.stage[i].x[0]    for i in range(self.N_st)])) +
-                   'Profile shift coefficient (Planet/Wheel),     x_2     = {} -\n'.format(     array([self.stage[i].x[1]    for i in range(self.N_st)])) +
-                   'Profile shift coefficient (Ring),             x_3     = {} -\n'.format(     array([self.stage[i].x[2]    for i in ring])) +
-                   'Reference diameter (Sun/Pinion),              d_1     = {} mm\n'.format(    array([self.stage[i].d[0]    for i in range(self.N_st)])) +
-                   'Reference diameter (Planet/Wheel),            d_2     = {} mm\n'.format(    array([self.stage[i].d[1]    for i in range(self.N_st)])) +
-                   'Reference diameter (Ring),                    d_3     = {} mm\n'.format(    array([self.stage[i].d[2]    for i in ring])) +
-                   'Mass (Sun/Pinion),                            m_1     = {} kg\n'.format(    array([self.stage[i].mass[0] for i in range(self.N_st)])) +
-                   'Mass (Planet/Wheel),                          m_2     = {} kg\n'.format(    array([self.stage[i].mass[1] for i in range(self.N_st)])) +
-                   'Mass (Ring),                                  m_3     = {} kg\n'.format(    array([self.stage[i].mass[2] for i in ring])) +
-                   'Mass mom. inertia (Sun/Pinion),               J_xx1   = {} kg-m**2\n'.format(array([self.stage[i].J_x[0]  for i in range(self.N_st)])) +
-                   'Mass mom. inertia (Planet/Wheel),             J_xx2   = {} kg-m**2\n'.format(array([self.stage[i].J_x[1]  for i in range(self.N_st)])) +
-                   'Mass mom. inertia (Ring),                     J_xx3   = {} kg-m**2\n'.format(array([self.stage[i].J_x[2]  for i in ring])))
+                   'Gear ratio,                                   u       = {} -\n'.format(     np.array([self.stage[i].u       for i in range(self.N_st)])) +
+                   'Number of planets,                            p       = {} -\n'.format(     np.array([self.stage[i].N_p     for i in range(self.N_st)])) +
+                   'Normal module,                                m_n     = {} mm\n'.format(    np.array([self.stage[i].m_n     for i in range(self.N_st)])) +
+                   'Normal pressure angle,                        alpha_n = {} deg.\n'.format(  np.array([self.stage[i].alpha_n for i in range(self.N_st)])) +
+                   'Helix angle,                                  beta    = {} deg.\n'.format(  np.array([self.stage[i].beta    for i in range(self.N_st)])) +
+                   'Face width,                                   b       = {} mm\n'.format(    np.array([self.stage[i].b       for i in range(self.N_st)])) +
+                   'Center distance,                              a_w     = {} mm\n'.format(    np.array([self.stage[i].a_w     for i in range(self.N_st)])) +
+                   'Number of teeth (Sun/Pinion),                 z_1     = {} -\n'.format(     np.array([self.stage[i].z[0]    for i in range(self.N_st)])) +
+                   'Number of teeth (Planet/Wheel),               z_2     = {} -\n'.format(     np.array([self.stage[i].z[1]    for i in range(self.N_st)])) +
+                   'Number of teeth (Ring),                       z_3     = {} -\n'.format(     np.array([self.stage[i].z[2]    for i in ring])) +
+                   'Profile shift coefficient (Sun/Pinion),       x_1     = {} -\n'.format(     np.array([self.stage[i].x[0]    for i in range(self.N_st)])) +
+                   'Profile shift coefficient (Planet/Wheel),     x_2     = {} -\n'.format(     np.array([self.stage[i].x[1]    for i in range(self.N_st)])) +
+                   'Profile shift coefficient (Ring),             x_3     = {} -\n'.format(     np.array([self.stage[i].x[2]    for i in ring])) +
+                   'Reference diameter (Sun/Pinion),              d_1     = {} mm\n'.format(    np.array([self.stage[i].d[0]    for i in range(self.N_st)])) +
+                   'Reference diameter (Planet/Wheel),            d_2     = {} mm\n'.format(    np.array([self.stage[i].d[1]    for i in range(self.N_st)])) +
+                   'Reference diameter (Ring),                    d_3     = {} mm\n'.format(    np.array([self.stage[i].d[2]    for i in ring])) +
+                   'Mass (Sun/Pinion),                            m_1     = {} kg\n'.format(    np.array([self.stage[i].mass[0] for i in range(self.N_st)])) +
+                   'Mass (Planet/Wheel),                          m_2     = {} kg\n'.format(    np.array([self.stage[i].mass[1] for i in range(self.N_st)])) +
+                   'Mass (Ring),                                  m_3     = {} kg\n'.format(    np.array([self.stage[i].mass[2] for i in ring])) +
+                   'Mass mom. inertia (Sun/Pinion),               J_xx1   = {} kg-m**2\n'.format(np.array([self.stage[i].J_x[0]  for i in range(self.N_st)])) +
+                   'Mass mom. inertia (Planet/Wheel),             J_xx2   = {} kg-m**2\n'.format(np.array([self.stage[i].J_x[1]  for i in range(self.N_st)])) +
+                   'Mass mom. inertia (Ring),                     J_xx3   = {} kg-m**2\n'.format(np.array([self.stage[i].J_x[2]  for i in ring])))
                # 'Mass mom. inertia (Sun/Pinion),               J_yy1   = {} kg-m**2' +
                # 'Mass mom. inertia (Planet/Wheel),             J_yy2   = {} kg-m**2' +
                # 'Mass mom. inertia (Ring),                     J_yy3   = {} kg-m**2' +
@@ -118,13 +118,13 @@ class Drivetrain:
         return val
     
     def __gear_ratio(self):
-        return cumprod([self.stage[idx].u for idx in range(self.N_st)])
+        return np.cumprod([self.stage[idx].u for idx in range(self.N_st)])
     
     def __output_speed(self):
         return self.n_rated*self.u
     
     def __output_torque(self):
-        return (self.P_rated*1.0e3)/(self.n_out*pi/30.0)
+        return (self.P_rated*1.0e3)/(self.n_out*np.pi/30.0)
     
     def min_func(self,**kwargs):
         gamma_P = kwargs['gamma_P'] if('gamma_P' in kwargs) else 1
@@ -148,7 +148,7 @@ class Drivetrain:
         diffSH = SHref - SH
         difffn = 1 - fn/fnref
 
-        return hstack((diffSH, difffn[1:n]))
+        return np.hstack((diffSH, difffn[1:n]))
 
     def save(self):
         pass
@@ -294,10 +294,10 @@ class NREL_5MW(Drivetrain):
             bore_Rp = 80.0/153.0
             bore_Rr = 1.2
             
-            zz = array([z_s, z_p, z_r])
-            xx = array([x_s, x_p, x_r])
-            kk = array([k_s, k_p, k_r])
-            bore_R = array([bore_Rs, bore_Rp, bore_Rr])
+            zz = np.array([z_s, z_p, z_r])
+            xx = np.array([x_s, x_p, x_r])
+            kk = np.array([k_s, k_p, k_r])
+            bore_R = np.array([bore_Rs, bore_Rp, bore_Rr])
             
         elif(idx == 1):
             conf = 'planetary' # [-],    GearSet configuration
@@ -320,10 +320,10 @@ class NREL_5MW(Drivetrain):
             bore_Rp = 95.0/189.0
             bore_Rr = 1.2
 
-            zz = array([z_s, z_p, z_r])
-            xx = array([x_s, x_p, x_r])
-            kk = array([k_s, k_p, k_r])
-            bore_R = array([bore_Rs, bore_Rp, bore_Rr])
+            zz = np.array([z_s, z_p, z_r])
+            xx = np.array([x_s, x_p, x_r])
+            kk = np.array([k_s, k_p, k_r])
+            bore_R = np.array([bore_Rs, bore_Rp, bore_Rr])
             
         elif(idx == 2):
             conf = 'parallel' # [-],    GearSet configuration
@@ -342,10 +342,10 @@ class NREL_5MW(Drivetrain):
             bore_R1 = 1809.0/3086.0
             bore_R2 = 3385.0/9143.0
 
-            zz = array([z_1, z_2])
-            xx = array([x_1, x_2])
-            kk = array([k_1, k_2])
-            bore_R = array([bore_R1, bore_R2])
+            zz = np.array([z_1, z_2])
+            xx = np.array([x_1, x_2])
+            kk = np.array([k_1, k_2])
+            bore_R = np.array([bore_R1, bore_R2])
             
         else:
             raise Exception('Option [{}] is NOT valid.'.format(idx))
@@ -371,58 +371,58 @@ class NREL_5MW(Drivetrain):
     @staticmethod
     def bearing(idx):
         
-        damping = array([453.0 , 42000.0,	30600.0, 0.0, 34.3 , 47.8 ])
+        damping = np.array([453.0 , 42000.0, 30600.0, 0.0, 34.3 , 47.8 ])
         
         if(idx == -1): # main shaft
             #                      x,      y,       z,       a,    b,      g
-            brg = Bearing(array([[0.0   , 1.50e10, 1.50e10, 0.0,  5.0e6,  5.0e6],     # stiffness
+            brg = Bearing(np.array([[0.0   , 1.50e10, 1.50e10, 0.0,  5.0e6,  5.0e6],     # stiffness
                                  [4.06e8, 1.54e10, 1.54e10, 0.0,  0.0  ,  0.0  ]]).T,
-                          array([[0.0   , 42000.0, 30600.0, 0.0, 34.3  , 47.8  ],    # damping
+                          np.array([[0.0   , 42000.0, 30600.0, 0.0, 34.3  , 47.8  ],    # damping
                                  damping]).T,
                           name =       ['INP-A', 'INP-B'], 
                           type =       [ 'CARB',   'SRB'], 
-                          OD   = array([ 1750.0,  1220.0]), 
-                          ID   = array([ 1250.0,   750.0]), 
-                          B    = array([  375.0,   365.0]))
+                          OD   = np.array([ 1750.0,  1220.0]), 
+                          ID   = np.array([ 1250.0,   750.0]), 
+                          B    = np.array([  375.0,   365.0]))
         elif(idx == 0): # stage 1
             #                      x,     y,     z,     a,   b,     g
-            brg = Bearing(array([[9.1e4, 9.4e9, 3.2e9, 0.0, 1.4e6, 4.5e6],
+            brg = Bearing(np.array([[9.1e4, 9.4e9, 3.2e9, 0.0, 1.4e6, 4.5e6],
                                  [9.1e4, 9.4e9, 3.2e9, 0.0, 1.4e6, 4.5e6],
                                  [6.6e4, 1.7e9, 1.1e9, 0.0, 5.6e5, 1.3e5],
                                  [6.6e7, 1.7e9, 1.1e9, 0.0, 5.6e5, 1.3e5]]).T, # stiffness
-                          array([damping,
+                          np.array([damping,
                                  damping,
                                  damping,
                                  damping]).T, # damping
                           name =       ['PL-A', 'PL-B', 'PLC-A', 'PLC-B'], 
                           type =       [ 'CRB',  'CRB',   'SRB',   'CRB'],
-                          OD   = array([ 600.0,  600.0,  1030.0,  1220.0]),
-                          ID   = array([ 400.0,  400.0,   710.0,  1000.0]),
-                          B    = array([ 272.0,  272.0,   315.0,   128.0]))
+                          OD   = np.array([ 600.0,  600.0,  1030.0,  1220.0]),
+                          ID   = np.array([ 400.0,  400.0,   710.0,  1000.0]),
+                          B    = np.array([ 272.0,  272.0,   315.0,   128.0]))
         elif(idx == 1): # stage 2
             #                      x,     y,     z,     a,   b,     g
-            brg = Bearing(array([[9.1e4, 6.0e7, 1.2e9, 0.0, 7.5e4, 7.5e4],
+            brg = Bearing(np.array([[9.1e4, 6.0e7, 1.2e9, 0.0, 7.5e4, 7.5e4],
                                  [9.1e4, 6.0e7, 1.2e9, 0.0, 7.5e4, 7.5e4],
                                  [9.1e4, 6.0e7, 1.2e9, 0.0, 7.5e4, 7.5e4],
                                  [9.1e7, 6.0e7, 1.2e9, 0.0, 7.5e4, 7.5e4]]).T, # stiffness
-                          array([damping,
+                          np.array([damping,
                                  damping,
                                  damping,
                                  damping]).T, # damping
                           name =       ['IMS-PL-A', 'IMS-PL-B', 'IMS-PLC-A', 'IMS-PLC-B'], 
                           type =       [     'CRB',      'CRB',      'CARB',       'CRB'],
-                          OD   = array([     520.0,      520.0,      1030.0,       870.0]),
-                          ID   = array([     380.0,      380.0,       710.0,       600.0]),
-                          B    = array([     140.0,      140.0,       236.0,       155.0]))
+                          OD   = np.array([     520.0,      520.0,      1030.0,       870.0]),
+                          ID   = np.array([     380.0,      380.0,       710.0,       600.0]),
+                          B    = np.array([     140.0,      140.0,       236.0,       155.0]))
         elif(idx == 2): # stage 3
             #                      x,     y,     z,     a,   b,     g
-            brg = Bearing(array([[0.0,   6.0e7, 1.2e9, 0.0, 7.5e4, 7.5e4],
+            brg = Bearing(np.array([[0.0,   6.0e7, 1.2e9, 0.0, 7.5e4, 7.5e4],
                                  [7.4e7, 5.0e8, 5.0e8, 0.0, 1.6e6, 1.8e6],
                                  [7.8e7, 7.4e8, 3.3e8, 0.0, 1.1e6, 2.5e6],
                                  [1.3e8, 8.2e8, 8.2e8, 0.0, 1.7e5, 1.0e6],
                                  [6.7e7, 8.0e8, 1.3e8, 0.0, 1.7e5, 1.0e6],
                                  [8.0e7, 1.0e9, 7.3e7, 0.0, 1.7e5, 1.0e6]]).T, # stiffness
-                          array([damping,
+                          np.array([damping,
                                  damping,
                                  damping,
                                  damping,
@@ -430,9 +430,9 @@ class NREL_5MW(Drivetrain):
                                  damping]).T, # damping
                           name =       ['IMS-A', 'IMS-B', 'IMS-C', 'HS-A', 'HS-B', 'HS-C'], 
                           type =       [  'CRB',   'TRB',   'TRB',  'CRB',  'TRB',  'TRB'],
-                          OD   = array([  360.0,   460.0,   460.0,  500.0,  550.0,  550.0]),
-                          ID   = array([  200.0,   200.0,   200.0,  400.0,  410.0,  410.0]),
-                          B    = array([   98.0,   100.0,   100.0,  100.0,   86.0,   86.0]))
+                          OD   = np.array([  360.0,   460.0,   460.0,  500.0,  550.0,  550.0]),
+                          ID   = np.array([  200.0,   200.0,   200.0,  400.0,  410.0,  410.0]),
+                          B    = np.array([   98.0,   100.0,   100.0,  100.0,   86.0,   86.0]))
         else:
             raise Exception('Option [{}] is NOT valid.'.format(idx))
     

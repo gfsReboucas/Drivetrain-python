@@ -7,7 +7,7 @@ Created on Sun Mar 29 14:18:42 2020
 from Gear import GearSet
 from components import Material
 from scipy import interpolate
-from numpy import array, pi, sin, cos, tan, radians, ones, mean, sqrt, log
+import numpy as np
 
 ###############################################################################
 
@@ -43,7 +43,7 @@ def _transv_load_factor(gset, term, Z_eps):
     if(gset.eps_gamma <= 2.0): # Eq. (73)
         K_Falpha = (0.9 + 0.4*term)*(gset.eps_gamma/2.0)
     else: # Eq. (74)
-        K_Falpha = 0.9 + 0.4*sqrt(2.0*(gset.eps_gamma - 1.0)/gset.eps_gamma)*term
+        K_Falpha = 0.9 + 0.4*np.sqrt(2.0*(gset.eps_gamma - 1.0)/gset.eps_gamma)*term
     
     K_Halpha = K_Falpha
     
@@ -67,18 +67,18 @@ def _transv_load_factor(gset, term, Z_eps):
             'K_Falpha': K_Falpha}
     
 def _zone_factor(gset):
-    num = 2.0*cos(radians(gset.beta_b))*cos(radians(gset.alpha_wt))
-    den = sin(radians(gset.alpha_wt))*cos(radians(gset.alpha_t))**2
-    return sqrt(num/den)
+    num = 2.0*np.cos(np.radians(gset.beta_b))*np.cos(np.radians(gset.alpha_wt))
+    den = np.sin(np.radians(gset.alpha_wt))*np.cos(np.radians(gset.alpha_t))**2
+    return np.sqrt(num/den)
 
 def _tooth_contact_factor(gset):
     
-    M_1 = tan(gset.alpha_wt)/sqrt((sqrt((gset.d_a[0]/gset.d_b[0])**2 - 1.0) - 
-                                   2.0*pi/gset.z[0])*(sqrt((gset.d_a[1]/gset.d_b[1])**2 - 1.0) - 
-                                                      (gset.eps_alpha - 1.0)*2.0*pi/gset.z[1]))
-    M_2 = tan(gset.alpha_wt)/sqrt((sqrt((gset.d_a[1]/gset.d_b[1])**2 - 1.0) - 
-                                   2.0*pi/gset.z[1])*(sqrt((gset.d_a[0]/gset.d_b[0])**2 - 1.0) - 
-                                                      (gset.eps_alpha - 1.0)*2.0*pi/gset.z[0]))
+    M_1 = np.tan(gset.alpha_wt)/np.sqrt((np.sqrt((gset.d_a[0]/gset.d_b[0])**2 - 1.0) - 
+                                   2.0*np.pi/gset.z[0])*(np.sqrt((gset.d_a[1]/gset.d_b[1])**2 - 1.0) - 
+                                                      (gset.eps_alpha - 1.0)*2.0*np.pi/gset.z[1]))
+    M_2 = np.tan(gset.alpha_wt)/np.sqrt((np.sqrt((gset.d_a[1]/gset.d_b[1])**2 - 1.0) - 
+                                   2.0*np.pi/gset.z[1])*(np.sqrt((gset.d_a[0]/gset.d_b[0])**2 - 1.0) - 
+                                                      (gset.eps_alpha - 1.0)*2.0*np.pi/gset.z[0]))
 
     if((gset.eps_beta == 0.0) and (gset.eps_alpha > 1.0)):
         if(M_1 > 1.0):
@@ -113,14 +113,14 @@ def _lub_vel_factor(sigma_Hlim, nu_40, v):
 
     # Velocity factor:
     C_Zv = C_ZL + 0.02
-    Z_v = C_Zv + 2.0*(1.0 - C_Zv)/sqrt(0.8 + 32.0/v)
+    Z_v = C_Zv + 2.0*(1.0 - C_Zv)/np.sqrt(0.8 + 32.0/v)
     
     return {'Z_v': Z_v,
             'Z_L': Z_L}
 
 def _rough_factor(gset, R_zh, sigma_Hlim):
-    rho_1 = 0.5*gset.d_b[0]*tan(radians(gset.alpha_wt))
-    rho_2 = 0.5*gset.d_b[1]*tan(radians(gset.alpha_wt))
+    rho_1 = 0.5*gset.d_b[0]*np.tan(np.radians(gset.alpha_wt))
+    rho_2 = 0.5*gset.d_b[1]*np.tan(np.radians(gset.alpha_wt))
 
     rho_red = (rho_1*rho_2)/(rho_1 + rho_2)
 
@@ -156,26 +156,26 @@ def _interp_ZNT(line, N):
     else:
         raise Exception('Invalid input [{}].\n'.format(line))
     
-    x = array(x)
-    y = array(y)
+    x = np.array(x)
+    y = np.array(y)
 
-    fun = interpolate.interp1d(log(x), y, kind = 'linear', 
+    fun = interpolate.interp1d(np.log(x), y, kind = 'linear', 
                                fill_value = (y[0], y[-1]),
                                bounds_error = False)
 
-    return fun(log(N)).item()
+    return fun(np.log(N)).item()
 
 def _contact_ratio_factor(gset):
     eps_a = gset.eps_alpha
     eps_b = gset.eps_beta
     
     if(gset.beta == 0.0):
-        Z_eps = sqrt((4.0 - eps_a)/3.0)
+        Z_eps = np.sqrt((4.0 - eps_a)/3.0)
     else:
         if(eps_b < 1.0):
-            Z_eps = sqrt((1.0 - eps_b)*(4.0 - eps_a)/3.0 + eps_b/eps_a)
+            Z_eps = np.sqrt((1.0 - eps_b)*(4.0 - eps_a)/3.0 + eps_b/eps_a)
         else:
-            Z_eps = sqrt(1.0/eps_a)
+            Z_eps = np.sqrt(1.0/eps_a)
     
     return Z_eps
 
@@ -261,7 +261,7 @@ class ISO_6336:
         C_a = kwargs['C_a']    if('C_a'    in kwargs) else C_ay
         
         # Preparatory calculations:
-        T_1 = (P*1.0e3)/(n_1*pi/30.0)
+        T_1 = (P*1.0e3)/(n_1*np.pi/30.0)
         
         T_1 = abs(T_1)
         n_1 = abs(n_1)
@@ -283,7 +283,7 @@ class ISO_6336:
             # SH = [item for sublist in SH for item in sublist]
             SH = SH1
         
-        return array(SH)
+        return np.array(SH)
     
             
     def Bending(self, **kwargs):
@@ -296,7 +296,7 @@ class ISO_6336:
         
         T1 = 9.0e3 # N-m
         n1 = 360.0 # 1/min.
-        P1 = T1*n1*(pi/30.0) # W
+        P1 = T1*n1*(np.pi/30.0) # W
         P1 = P1*1.0e-3 # kW
         
         example_01 = ISO_6336(gset,
@@ -317,7 +317,7 @@ class ISO_6336:
     def __calculate_SH(self, gset, T_1, n_1, C_a, E, nu, rho, sigma_Hlim, line, 
                        nu_40, R_z):
         
-            f_pb = max(gset.f_pt*cos(radians(gset.alpha_t)))
+            f_pb = max(gset.f_pt*np.cos(np.radians(gset.alpha_t)))
             if(f_pb >= 40.0): # [um]
                 y_alpha = 3.0 # [um]
             else:
@@ -337,7 +337,7 @@ class ISO_6336:
             # [N], Nominal tangential load:
             F_t = 2.0e3*(T_1/gset.d[0])/self.gear_set.N_p
             
-            line_load = F_t*self.K_A*self.K_gamma/mean(gset.b)
+            line_load = F_t*self.K_A*self.K_gamma/np.mean(gset.b)
             
             K_v = self.__dynamic_factor(gset, n_1, v, rho, line_load, C_a,
                                         f_pbeff, f_falphaeff)
@@ -361,10 +361,10 @@ class ISO_6336:
             Z_D = val['Z_D']
             
             # Elasticity factor: (sec. 7)
-            Z_E = sqrt(E/(2.0*pi*(1.0 - nu**2)))
+            Z_E = np.sqrt(E/(2.0*np.pi*(1.0 - nu**2)))
             
             # Helix angle factor: (sec. 9)
-            Z_beta = 1.0/sqrt(cos(radians(gset.beta)))
+            Z_beta = 1.0/np.sqrt(np.cos(np.radians(gset.beta)))
     
             val = _lub_vel_factor(sigma_Hlim, nu_40, v)
             Z_L = val['Z_L']
@@ -392,11 +392,11 @@ class ISO_6336:
             # Nominal contact stress at pitch point:
             num = F_t*(gset.u + 1.0)
             den = gset.d[0]*gset.b*gset.u
-            sigma_H0 = Z_H*Z_E*Z_eps*Z_beta*sqrt(num/den)
+            sigma_H0 = Z_H*Z_E*Z_eps*Z_beta*np.sqrt(num/den)
        
             # nominal contact stress at pitch point:
-            sigma_H1 = Z_B*sigma_H0*sqrt(self.K_gamma*self.K_A*K_v*K_Hbeta*K_Halpha) # pinion
-            sigma_H2 = Z_D*sigma_H0*sqrt(self.K_gamma*self.K_A*K_v*K_Hbeta*K_Halpha) # wheel
+            sigma_H1 = Z_B*sigma_H0*np.sqrt(self.K_gamma*self.K_A*K_v*K_Hbeta*K_Halpha) # pinion
+            sigma_H2 = Z_D*sigma_H0*np.sqrt(self.K_gamma*self.K_A*K_v*K_Hbeta*K_Halpha) # wheel
             
             # Permissible contact stress:
             sigma_HP1 = sigma_Hlim*Z_NT1*Z_L*Z_v*Z_R*Z_W*Z_X/self.S_Hmin
@@ -412,9 +412,9 @@ class ISO_6336:
         
         gs = self.gear_set
         if(gs.configuration == 'parallel'):
-            v = (pi*n/60.0e3)*gs.d[0]
+            v = (np.pi*n/60.0e3)*gs.d[0]
         elif(gs.configuration == 'planetary'):
-            v = (pi*n/60.0e3)*(gs.d[0] - gs.a_w/gs.u)
+            v = (np.pi*n/60.0e3)*(gs.d[0] - gs.a_w/gs.u)
         
         return v
 
@@ -423,7 +423,7 @@ class ISO_6336:
         
         z1 = self.gear_set.z[0]
         uu = self.gear_set.u
-        cond = (v*z1/100.0)*sqrt((uu**2)/(1.0 + uu**2))
+        cond = (v*z1/100.0)*np.sqrt((uu**2)/(1.0 + uu**2))
         if(cond < 3.0): # [m/s]
             print('Calculating K_v using method B outside of its useful range. ' + 
                   'More info at the end of Sec. 6.3.2 of ISO 6336-1.')
@@ -432,12 +432,12 @@ class ISO_6336:
             # Based on Sec. 6.5.9 of ISO 6336-1, Eq. (30), assuming gears:
             # - of solid construction, and
             # - with the same density
-            num = pi*rho*(gset.u**2)*gset.d_m[0]**4
+            num = np.pi*rho*(gset.u**2)*gset.d_m[0]**4
             den = 8.0*(gset.u**2 + 1.0)*gset.d_b[0]**2
             m_red = num/den
 
             # Resonance running speed, Eq. (6) [1]:
-            n_E1 = 3.0e4*sqrt(gset.c_gamma_alpha/m_red)/(pi*gset.z[0]) # [1/min]
+            n_E1 = 3.0e4*np.sqrt(gset.c_gamma_alpha/m_red)/(np.pi*gset.z[0]) # [1/min]
 
             # Resonance ratio, Eq. (9) [1]:
             N = n_1/n_E1
@@ -446,14 +446,14 @@ class ISO_6336:
                                                        f_pbeff, f_falphaeff)
             
         elif(self.gear_set.configuration == 'planetary'):
-            m_sun = rho*(pi/8.0)*(self.gear_set.d_m[0]**4)/(self.gear_set.d_b[0]**2) # sun
-            m_pla = rho*(pi/8.0)*(self.gear_set.d_m[1]**4)/(self.gear_set.d_b[1]**2) # planet
+            m_sun = rho*(np.pi/8.0)*(self.gear_set.d_m[0]**4)/(self.gear_set.d_b[0]**2) # sun
+            m_pla = rho*(np.pi/8.0)*(self.gear_set.d_m[1]**4)/(self.gear_set.d_b[1]**2) # planet
             m_red1 = (m_pla*m_sun)/(m_sun + m_pla*self.gear_set.N_p)
             m_red2 =  m_pla
 
             # Resonance running speed:
-            n_E11 = 3.0e4*sqrt(self.gear_set.cprime/m_red1)*1.0/(pi*self.gear_set.z[0]) # [1/min]
-            n_E12 = 3.0e4*sqrt(self.gear_set.cprime/m_red2)*1.0/(pi*self.gear_set.z[1]) # [1/min]
+            n_E11 = 3.0e4*np.sqrt(self.gear_set.cprime/m_red1)*1.0/(np.pi*self.gear_set.z[0]) # [1/min]
+            n_E12 = 3.0e4*np.sqrt(self.gear_set.cprime/m_red2)*1.0/(np.pi*self.gear_set.z[1]) # [1/min]
 
             # Resonance ratio:
             N_1 =  n_1/n_E11
@@ -494,7 +494,7 @@ class ISO_6336:
         if(1.0 < esp_g <= 1.5):
             C_v7 = 0.75
         elif(1.5 < esp_g <= 2.5):
-            C_v7 = 0.125*sin(pi*(esp_g - 2.0)) + 0.875
+            C_v7 = 0.125*np.sin(np.pi*(esp_g - 2.0)) + 0.875
         elif(esp_g > 2.5):
             C_v7 = 1.0
         
@@ -505,7 +505,7 @@ class ISO_6336:
         
         # Dynamic factor:
         if(line_load < 100): # [N/mm]
-            N_S = 0.5 + 0.35*sqrt(line_load/100.0) # Eq. (11), [1]
+            N_S = 0.5 + 0.35*np.sqrt(line_load/100.0) # Eq. (11), [1]
         else:
             N_S = 0.85 # Eq. (12) [1]
         
