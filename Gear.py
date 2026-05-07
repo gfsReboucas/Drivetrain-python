@@ -15,11 +15,9 @@ Written by:
 """
 from math import floor, ceil
 from numpy import pi, sin, cos, tan, degrees, radians, arccos, arctan, abs
-from numpy import ndarray, sign, sqrt, printoptions, ones, mean, nan
-from scipy import array, zeros
+from numpy import ndarray, sign, sqrt, printoptions, ones, mean, nan, array, zeros
 from matplotlib.pyplot import gca
 from matplotlib.patches import Rectangle
-from comtypes.client import CreateObject
 import os
 
 from components import Rack, Material, Shaft, Bearing, check_key
@@ -477,6 +475,14 @@ class GearSet(Gear):
         Creates a KISSsoft COM object based on the GearSet object.
         More info on KISSsoft on: https://www.kisssoft.ch/
         '''
+        try:
+            from comtypes.client import CreateObject
+        except ImportError as exc:
+            raise ImportError(
+                "KISSsoft integration requires the optional 'comtypes' package "
+                "and a local KISSsoft COM installation. Core drivetrain models "
+                "can be used without this dependency."
+            ) from exc
         
         ks = CreateObject('KISSsoftCOM.KISSsoft')
         ks.SetSilentMode(True)

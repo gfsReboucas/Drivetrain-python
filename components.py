@@ -16,8 +16,8 @@ Written by:
 
 # import sys
 from numpy import pi, sin, tan, radians, isscalar, mean, eye, allclose, diag, \
-                  sqrt, zeros
-from scipy import interpolate, array
+                  sqrt, zeros, array
+from scipy import interpolate
 from scipy.stats import hmean
 from scipy.linalg import block_diag
 from matplotlib.pyplot import gca

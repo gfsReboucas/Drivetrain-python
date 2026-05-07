@@ -6,8 +6,8 @@ Created on Sun Mar 29 14:18:42 2020
 """
 from Gear import GearSet
 from components import Material
-from scipy import array, interpolate
-from numpy import pi, sin, cos, tan, radians, ones, mean, sqrt, log, asscalar
+from scipy import interpolate
+from numpy import array, pi, sin, cos, tan, radians, ones, mean, sqrt, log
 
 ###############################################################################
 
@@ -163,7 +163,7 @@ def _interp_ZNT(line, N):
                                fill_value = (y[0], y[-1]),
                                bounds_error = False)
 
-    return asscalar(fun(log(N)))
+    return fun(log(N)).item()
 
 def _contact_ratio_factor(gset):
     eps_a = gset.eps_alpha
