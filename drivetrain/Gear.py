@@ -2,14 +2,8 @@
 """
 Written by:
     Geraldo Rebouças
-    - Geraldo.Reboucas@ntnu.no OR
     - gfs.reboucas@gmail.com
-
-    Postdoctoral Fellow at:
-        Norwegian University of Science and Technology, NTNU
-        Department of Marine Technology, IMT
-        Marine System Dynamics and Vibration Lab, MD Lab
-        https://www.ntnu.edu/imt/lab/md-lab
+    - https://gfsreboucas.github.io
 
 @author: geraldod
 """
@@ -57,14 +51,8 @@ class Gear(Rack):
             
     written by:
         Geraldo Rebouças
-        - Geraldo.Reboucas@ntnu.no OR
         - gfs.reboucas@gmail.com
-        
-        Postdoctoral Fellow at:
-            Norwegian University of Science and Technology, NTNU
-            Department of Marine Technology, IMT
-            Marine System Dynamics and Vibration Lab, MD Lab
-            https://www.ntnu.edu/imt/lab/md-lab
+        - https://gfsreboucas.github.io
     '''
     
     def __init__(self, **kwargs):
@@ -246,14 +234,8 @@ class GearSet(Gear):
         
     written by:
         Geraldo Rebouças
-        - Geraldo.Reboucas@ntnu.no OR
         - gfs.reboucas@gmail.com
-    
-        Postdoctoral Fellow at:
-            Norwegian University of Science and Technology, NTNU
-            Department of Marine Technology, IMT
-            Marine System Dynamics and Vibration Lab, MD Lab
-            https://www.ntnu.edu/imt/lab/md-lab
+        - https://gfsreboucas.github.io
     '''
     
     def __init__(self, **kwargs):
@@ -822,14 +804,8 @@ class Carrier:
     
     written by:
         Geraldo Rebouças
-        - Geraldo.Reboucas@ntnu.no OR
         - gfs.reboucas@gmail.com
-
-        Postdoctoral Fellow at:
-            Norwegian University of Science and Technology, NTNU
-            Department of Marine Technology, IMT
-            Marine System Dynamics and Vibration Lab, MD Lab
-            https://www.ntnu.edu/imt/lab/md-lab
+        - https://gfsreboucas.github.io
     '''
     
     def __init__(self, aw, bg):

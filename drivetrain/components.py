@@ -2,14 +2,8 @@
 """
 Written by:
     Geraldo Rebouças
-    - Geraldo.Reboucas@ntnu.no OR
     - gfs.reboucas@gmail.com
-
-    Postdoctoral Fellow at:
-        Norwegian University of Science and Technology, NTNU
-        Department of Marine Technology, IMT
-        Marine System Dynamics and Vibration Lab, MD Lab
-        https://www.ntnu.edu/imt/lab/md-lab
+    - https://gfsreboucas.github.io
 
 @author: geraldod
 """
@@ -82,14 +76,8 @@ class Rack:
        
     written by:
         Geraldo Rebouças
-        - Geraldo.Reboucas@ntnu.no OR
         - gfs.reboucas@gmail.com
-        
-        Postdoctoral Fellow at:
-            Norwegian University of Science and Technology, NTNU
-            Department of Marine Technology, IMT
-            Marine System Dynamics and Vibration Lab, MD Lab
-            https://www.ntnu.edu/imt/lab/md-lab
+        - https://gfsreboucas.github.io
     '''
     
     def __init__(self, **kwargs):
@@ -221,14 +209,8 @@ class Bearing:
     
     written by:
         Geraldo Rebouças
-        - Geraldo.Reboucas@ntnu.no OR
         - gfs.reboucas@gmail.com
-        
-        Postdoctoral Fellow at:
-            Norwegian University of Science and Technology, NTNU
-            Department of Marine Technology, IMT
-            Marine System Dynamics and Vibration Lab, MD Lab
-            https://www.ntnu.edu/imt/lab/md-lab
+        - https://gfsreboucas.github.io
     '''
     
     def __init__(self, stiffness = np.zeros(6), damping = np.zeros(6), **kwargs):
@@ -394,14 +376,8 @@ class Shaft:
         
     written by:
         Geraldo Rebouças
-        - geraldo.reboucas@ntnu.no OR
         - gfs.reboucas@gmail.com
-            
-        Postdoctoral Fellow at:
-            Norwegian University of Science and Technology, NTNU
-            Department of Marine Technology, IMT
-            Marine System Dynamics and Vibration Lab, MD Lab
-            https://www.ntnu.edu/imt/lab/md-lab
+        - https://gfsreboucas.github.io
     '''
     
     def __init__(self, dd = 700.0, LL = 2.0e3):
