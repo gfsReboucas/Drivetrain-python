@@ -9,6 +9,8 @@ Written by:
 """
 
 # import sys
+from dataclasses import InitVar, dataclass, field
+
 import numpy as np
 from scipy import interpolate
 import scipy.linalg as la
@@ -43,24 +45,26 @@ def check_key(key, dic):
 
 ###############################################################################
 
+@dataclass
 class Material:
     '''
     Simple class to store some properties of materials used to manufacture
     gears.
     '''
-    def __init__(self):
-        self.E          =  206.0e9  # [Pa],     Young's modulus
-        self.nu         =    0.3    # [-],      Poisson's ratio
-        self.sigma_Hlim = 1500.0e6  # [Pa],     Allowable contact stress number
-        self.rho        =    7.83e3 # [kg/m**3], Density
-        self.S_ut       =  700.0e6  # [Pa],     Tensile strength
-        self.S_y        =  490.0e6  # [Pa],     Yield strength
-        
-        # % [Pa],     Shear modulus
+    E: float = 206.0e9          # [Pa],     Young's modulus
+    nu: float = 0.3             # [-],      Poisson's ratio
+    sigma_Hlim: float = 1500.0e6 # [Pa],     Allowable contact stress number
+    rho: float = 7.83e3         # [kg/m**3], Density
+    S_ut: float = 700.0e6       # [Pa],     Tensile strength
+    S_y: float = 490.0e6        # [Pa],     Yield strength
+
+    def __post_init__(self):
+        # [Pa], Shear modulus.
         self.G = (self.E/2.0)/(1.0 + self.nu)
         
 ###############################################################################
 
+@dataclass
 class Rack:
     '''
     Implements some characteristics of the standard basic rack tooth profile 
@@ -80,16 +84,13 @@ class Rack:
         - https://gfsreboucas.github.io
     '''
     
-    def __init__(self, **kwargs):
-        # main attributes:
-        # [-],    Type of basic rack tooth profile:
-        self.type    = kwargs['type']    if('type'    in kwargs) else 'A'
-        # [mm],   Module:
-        mm           = kwargs['m']       if('m'       in kwargs) else 1.0
-        self.m       = self.module(mm)
-        # [deg.], Pressure angle:
-        self.alpha_P = kwargs['alpha_P'] if('alpha_P' in kwargs) else 20.0
-        
+    type: str = 'A'      # [-],    Type of basic rack tooth profile.
+    m: float = 1.0       # [mm],   Module.
+    alpha_P: float = 20.0 # [deg.], Pressure angle.
+
+    def __post_init__(self):
+        self.m = self.module(self.m)
+
         # secondary attributes:
         if(self.type == 'A'):
             k_c_P    = 0.25
@@ -202,6 +203,7 @@ class Rack:
 
 ###############################################################################
 
+@dataclass
 class Bearing:
     '''
     This class contains some geometric and dynamic properties of rolling 
@@ -213,44 +215,40 @@ class Bearing:
         - https://gfsreboucas.github.io
     '''
     
-    def __init__(self, stiffness = np.zeros(6), damping = np.zeros(6), **kwargs):
-        
+    stiffness: np.ndarray = field(default_factory=lambda: np.zeros(6))
+    damping: np.ndarray = field(default_factory=lambda: np.zeros(6))
+    name: object = '-*-'
+    type: object = 'none'
+    OD: object = 0.0
+    ID: object = 0.0
+    B: object = 0.0
+
+    def __post_init__(self):
         # [N/m],     Translational stiffness, x axis:
-        self.k_x     = stiffness[0]
+        self.k_x     = self.stiffness[0]
         # [N/m],     Translational stiffness, y axis:
-        self.k_y     = stiffness[1]
+        self.k_y     = self.stiffness[1]
         # [N/m],     Translational stiffness, z axis:
-        self.k_z     = stiffness[2]
+        self.k_z     = self.stiffness[2]
         # [N-m/rad], Torsional stiffness, x axis (rot.):
-        self.k_alpha = stiffness[3]
+        self.k_alpha = self.stiffness[3]
         # [N-m/rad], Torsional stiffness, y axis:
-        self.k_beta  = stiffness[4]
+        self.k_beta  = self.stiffness[4]
         # [N-m/rad], Torsional stiffness, z axis:
-        self.k_gamma = stiffness[5]
+        self.k_gamma = self.stiffness[5]
         
         # [N-s/m],     Translational damping, x axis:
-        self.d_x     = damping[0]
+        self.d_x     = self.damping[0]
         # [N-s/m],     Translational damping, y axis:
-        self.d_y     = damping[1]
+        self.d_y     = self.damping[1]
         # [N-s/m],     Translational damping, z axis:
-        self.d_z     = damping[2]
+        self.d_z     = self.damping[2]
         # [N-m-s/rad], Torsional damping, x axis (rot.):
-        self.d_alpha = damping[3]
+        self.d_alpha = self.damping[3]
         # [N-m-s/rad], Torsional damping, y axis:
-        self.d_beta  = damping[4]
+        self.d_beta  = self.damping[4]
         # [N-m-s/rad], Torsional damping, z axis:
-        self.d_gamma = damping[5]
-        
-        # [-],       Bearing designation:
-        self.name = kwargs['name'] if('name' in kwargs) else '-*-'
-        # [-],       Bearing type:
-        self.type = kwargs['type'] if('type' in kwargs) else 'none'
-        # [mm],      Outer diameter:
-        self.OD   = kwargs['OD']   if('OD'   in kwargs) else 0.0
-        # [mm],      Inner diameter
-        self.ID   = kwargs['ID']   if('ID'   in kwargs) else 0.0
-        # [mm],      Thickness
-        self.B    = kwargs['B']    if('B'    in kwargs) else 0.0
+        self.d_gamma = self.damping[5]
         
     def __repr__(self):
         
@@ -356,6 +354,7 @@ class Bearing:
 
 ###############################################################################
 
+@dataclass
 class Shaft:
     '''
     This class implements some geometrical concepts and parameters for 
@@ -380,8 +379,10 @@ class Shaft:
         - https://gfsreboucas.github.io
     '''
     
-    def __init__(self, dd = 700.0, LL = 2.0e3):
-        
+    dd: InitVar[float] = 700.0
+    LL: InitVar[float] = 2.0e3
+
+    def __post_init__(self, dd, LL):
         # main attributes: 
         self.d = dd # [mm], diameter
         self.L = LL # [mm], length

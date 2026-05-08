@@ -7,6 +7,7 @@ Written by:
 
 @author: geraldod
 """
+from dataclasses import InitVar, dataclass
 from math import floor, ceil
 import numpy as np
 import matplotlib.pyplot as plt
@@ -798,6 +799,7 @@ class GearSet(Gear):
 
 ###############################################################################
 
+@dataclass
 class Carrier:
     '''
     Implements some dimensions of a planet carrier.
@@ -808,7 +810,10 @@ class Carrier:
         - https://gfsreboucas.github.io
     '''
     
-    def __init__(self, aw, bg):
+    aw: InitVar[float]
+    bg: InitVar[float]
+
+    def __post_init__(self, aw, bg):
         # main attributes:
         self.a_w = aw # [mm], Center distance
         self.b_g = bg # [mm], Face width
