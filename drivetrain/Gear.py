@@ -17,7 +17,6 @@ from math import floor, ceil
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
-import os
 
 from .components import Rack, Material, Shaft, Bearing, check_key
 
@@ -469,67 +468,6 @@ class GearSet(Gear):
                        bearing       = self.bearing,
                        N_p           = self.N_p)
 
-    def KISSsoft(self):
-        '''
-        Creates a KISSsoft COM object based on the GearSet object.
-        More info on KISSsoft on: https://www.kisssoft.ch/
-        '''
-        try:
-            from comtypes.client import CreateObject
-        except ImportError as exc:
-            raise ImportError(
-                "KISSsoft integration requires the optional 'comtypes' package "
-                "and a local KISSsoft COM installation. Core drivetrain models "
-                "can be used without this dependency."
-            ) from exc
-        
-        ks = CreateObject('KISSsoftCOM.KISSsoft')
-        ks.SetSilentMode(True)
-        
-        if(self.configuration == 'parallel'):
-            ks.GetModule('Z012', False)
-            std_file = 'CylGearPair 1 (spur gear).Z12'
-            geo_meth = False
-        elif(self.configuration == 'planetary'):
-            ks.GetModule('Z014', False)
-            std_file = 'PlanetarySet 1 (ISO6336).Z14'
-            geo_meth = True
-            
-        file_name = os.path.join('C:\\Program Files (x86)\\KISSsoft 03-2017\\example', std_file)
-        
-        try:
-            ks.LoadFile(file_name)
-        except:
-            ks.ReleaseModule()
-            raise Exception('Error while loading file {}.'.format(file_name))
-        
-        ks.SetVar('ZS.AnzahlZwi', '{}'.format(             self.N_p))      # number of planets
-        ks.SetVar('ZS.Geo.mn'   , '{:.6f}'.format(        self.m_n))      # normal module
-        ks.SetVar('ZP[0].a'     , '{:.6f}'.format(        self.a_w))      # center distance
-        ks.SetVar('ZS.Geo.alfn' , '{:.6f}'.format(np.radians(self.alpha_n))) # normal pressure angle
-        ks.SetVar('ZS.Geo.beta' , '{:.6f}'.format(np.radians(self.beta)))    # helix angle
-        
-        ks.SetVar('RechSt.GeometrieMeth', '{}'.format(geo_meth)) # tooth geometry according to [6]
-        
-        R_a    = 0.8 # [um], Maximum arithmetic mean roughness for external gears according to [5], Sec. 7.2.7.2.
-        
-        for idx, zz in enumerate(self.z):
-            ks.SetVar('ZR[{}].z'.format(idx),     '{}'.format(np.abs(zz)))
-            ks.SetVar('ZR[{}].x.nul'.format(idx), '{:.6f}'.format(self.x[idx]))
-            ks.SetVar('ZR[{}].b'.format(idx),     '{:.6f}'.format(self.b))
-            ks.SetVar('ZR[{}].Tool.type'.format(idx), '2')
-            # ks.SetVar('ZR[{}].Tool.RefProfile.name'.format(idx), '1.25 / 0.38 / 1.0 ISO 53:1998 Profil %s', obj.type));
-               
-            ks.SetVar('ZR[{}].Vqual'.format(idx), '{}'.format(self.Q))
-            ks.SetVar('ZR[{}].RAH'  .format(idx), '{}'.format(R_a))
-            ks.SetVar('ZR[{}].RAF'  .format(idx), '{}'.format(6.0*R_a))
-            
-            if(not ks.CalculateRetVal()):
-                ks.ReleaseModule()
-                raise Exception('Error in KISSsoft calculation.')
-
-        return ks
-    
     def __gear(self, idx):
         '''
          returns the idx-th gear of the GearSet object.
