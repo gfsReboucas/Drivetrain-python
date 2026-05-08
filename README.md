@@ -62,6 +62,16 @@ conda activate drivetrain-python
 
 If `conda` is not on PATH, open an Anaconda Prompt or run `conda init powershell` from an Anaconda shell.
 
+## Basic Usage
+
+Use package imports from `drivetrain`:
+
+```python
+from drivetrain import NREL_5MW
+from drivetrain.Gear import GearSet
+from drivetrain.ISO_6336 import ISO_6336
+```
+
 ## Roadmap
 
 See [docs/roadmap.md](docs/roadmap.md) for the migration plan and [docs/github-project.md](docs/github-project.md) for a GitHub issue backlog.
