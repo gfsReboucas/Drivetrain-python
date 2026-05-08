@@ -21,7 +21,7 @@ Known limitations:
 
 - targets older Python and scientific-library APIs;
 - still has some commercial-tool assumptions from the MATLAB code path;
-- lacks package layout, tests, CI, and validation reports;
+- has an initial package layout and smoke tests, but still needs CI and validation reports;
 - needs numerical regression checks against the MATLAB implementation.
 
 ## Scope

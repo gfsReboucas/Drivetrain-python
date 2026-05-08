@@ -1,6 +1,6 @@
 import numpy as np
 
-from Drivetrain import NREL_5MW
+from drivetrain import NREL_5MW
 
 
 def test_nrel_5mw_stage_layout():

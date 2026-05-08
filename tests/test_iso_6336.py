@@ -1,7 +1,7 @@
 import numpy as np
 
-from Gear import GearSet
-from ISO_6336 import ISO_6336
+from drivetrain.Gear import GearSet
+from drivetrain.ISO_6336 import ISO_6336
 
 
 def test_iso_6336_example_01_pitting_safety_factor():

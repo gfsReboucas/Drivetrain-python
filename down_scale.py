@@ -1,4 +1,4 @@
-from Drivetrain import NREL_5MW
+from drivetrain import NREL_5MW
 
 class scaled_version:
     def __init__(self, dtrain):
