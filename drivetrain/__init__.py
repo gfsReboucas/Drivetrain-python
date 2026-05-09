@@ -2,6 +2,7 @@
 
 from .components import Bearing, Material, Rack, Shaft
 from .Drivetrain import Drivetrain, NREL_5MW
+from . import models
 from .Gear import Carrier, Gear, GearSet
 from .dynamic_formulation import Kahraman_94, Lin_Parker_99, Lin_Parker_99_mod, model, torsional_2DOF
 
@@ -20,4 +21,5 @@ __all__ = [
     "Shaft",
     "model",
     "torsional_2DOF",
+    "models",
 ]
