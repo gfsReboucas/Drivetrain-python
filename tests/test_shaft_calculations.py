@@ -1,6 +1,16 @@
 import numpy as np
+import scipy.linalg as la
 
 from drivetrain.components import Material, Shaft
+
+
+def _modal_frequencies(stiffness, mass):
+    eigenvalues, _ = la.eig(stiffness, mass, right=True)
+    eigenvalues = np.real_if_close(eigenvalues)
+    eigenvalues = np.real(eigenvalues)
+    eigenvalues[np.abs(eigenvalues) < 1e-8] = 0.0
+    frequencies = np.sqrt(np.clip(eigenvalues, 0.0, None)) / (2.0 * np.pi)
+    return np.sort(frequencies)
 
 
 def test_shaft_torsional_stiffness_matches_closed_form():
@@ -70,4 +80,56 @@ def test_shaft_damping_matrix_defaults_to_one_percent_stiffness():
         shaft.damping_matrix("torsional"),
         0.01 * shaft.stiffness_matrix("torsional"),
         rtol=1e-12,
+    )
+
+
+def test_shaft_full_matrix_modes_match_decoupled_matrix_reference():
+    shaft = Shaft(50.0, 1000.0)
+    expected = np.sort(
+        np.concatenate(
+            [
+                _modal_frequencies(shaft.stiffness_matrix("axial"), shaft.inertia_matrix("axial")),
+                _modal_frequencies(
+                    shaft.stiffness_matrix("torsional"), shaft.inertia_matrix("torsional")
+                ),
+                _modal_frequencies(shaft.stiffness_matrix("bending"), shaft.inertia_matrix("bending")),
+                _modal_frequencies(shaft.stiffness_matrix("bending"), shaft.inertia_matrix("bending")),
+            ]
+        )
+    )
+
+    actual = _modal_frequencies(
+        shaft.stiffness_matrix("full"),
+        shaft.inertia_matrix("full"),
+    )
+
+    np.testing.assert_allclose(actual[:6], np.zeros(6), atol=1e-5)
+    np.testing.assert_allclose(actual[6:], expected[6:], rtol=1e-10, atol=1e-8)
+
+
+def test_shaft_full_matrix_modes_match_matlab_reported_values():
+    shaft = Shaft(50.0, 1000.0)
+
+    actual = _modal_frequencies(
+        shaft.stiffness_matrix("full"),
+        shaft.inertia_matrix("full"),
+    )
+
+    np.testing.assert_allclose(
+        actual,
+        [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            273.81,
+            273.81,
+            935.24,
+            935.24,
+            1753.8,
+            2827.9,
+        ],
+        atol=0.02,
     )

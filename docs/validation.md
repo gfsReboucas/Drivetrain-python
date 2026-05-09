@@ -58,6 +58,7 @@ calculation behavior:
 - first critical speed
 - proportional damping matrix
 - fatigue/yield safety wrapper
+- full shaft mass/stiffness matrix modal frequencies
 
 The critical-speed check follows the MATLAB expression for a uniform circular
 shaft:
@@ -71,3 +72,12 @@ Strength inputs for the lower-level fatigue calculation are kept in MPa for
 compatibility with the existing Python method. The public `safety_factors`
 wrapper converts the default material strengths from Pa to MPa before calling
 that lower-level calculation.
+
+The full-matrix modal test follows the MATLAB `Shaft.test` pattern for a shaft
+with `d = 50 mm` and `L = 1000 mm`: the full 12-DOF beam matrices are compared
+against the decoupled axial, torsional, and two bending-plane matrices. The test
+also checks the non-zero frequencies reported in the MATLAB source comments:
+
+```text
+273.81, 273.81, 935.24, 935.24, 1753.8, 2827.9 Hz
+```
