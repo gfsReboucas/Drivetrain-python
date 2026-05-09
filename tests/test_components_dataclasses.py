@@ -4,6 +4,10 @@ import numpy as np
 
 from drivetrain.Gear import Carrier
 from drivetrain.components import Bearing, Material, Rack, Shaft
+from drivetrain.components.bearings import Bearing as BearingModuleImport
+from drivetrain.components.materials import Material as MaterialModuleImport
+from drivetrain.components.racks import Rack as RackModuleImport
+from drivetrain.components.shafts import Shaft as ShaftModuleImport
 
 
 def test_core_component_types_are_dataclasses():
@@ -12,6 +16,13 @@ def test_core_component_types_are_dataclasses():
     assert is_dataclass(Bearing)
     assert is_dataclass(Shaft)
     assert is_dataclass(Carrier)
+
+
+def test_component_package_reexports_focused_modules():
+    assert MaterialModuleImport is Material
+    assert RackModuleImport is Rack
+    assert BearingModuleImport is Bearing
+    assert ShaftModuleImport is Shaft
 
 
 def test_material_derives_shear_modulus():

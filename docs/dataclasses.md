@@ -3,10 +3,10 @@
 The core package uses Python `dataclasses` for small engineering containers
 whose constructor inputs are clear and mostly passive:
 
-- `Material`
-- `Rack`
-- `Bearing`
-- `Shaft`
+- `drivetrain.components.materials.Material`
+- `drivetrain.components.racks.Rack`
+- `drivetrain.components.bearings.Bearing`
+- `drivetrain.components.shafts.Shaft`
 - `Carrier`
 
 These classes still compute derived engineering quantities in `__post_init__`
@@ -25,3 +25,10 @@ Pydantic is deferred because the current package is a numerical modeling core,
 not a file/API boundary. It may be useful later for validating JSON, YAML, CSV,
 or web/API inputs before those inputs are converted into the internal
 dataclass-based model objects.
+
+The component package re-exports its public classes, so user code can keep the
+short import style:
+
+```python
+from drivetrain.components import Material, Rack, Bearing, Shaft
+```

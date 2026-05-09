@@ -5,7 +5,7 @@ Created on Sun Mar 29 14:18:42 2020
 @author: geraldod
 """
 from .Gear import GearSet
-from .components import Material
+from .components.materials import Material
 from scipy import interpolate
 import numpy as np
 

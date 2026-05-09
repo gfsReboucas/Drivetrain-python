@@ -6,7 +6,8 @@ Created on Fri Mar 27 11:01:45 2020
 """
 from json import dumps
 import numpy as np
-from .components import Bearing, Shaft #, check_key
+from .components.bearings import Bearing
+from .components.shafts import Shaft
 from .Gear import GearSet
 from .dynamic_formulation import torsional_2DOF, Kahraman_94, Lin_Parker_99
 from .ISO_6336 import ISO_6336

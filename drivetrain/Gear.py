@@ -13,7 +13,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 
-from .components import Rack, Material, Shaft, Bearing, check_key
+from .components.bearings import Bearing
+from .components.materials import Material
+from .components.racks import Rack
+from .components.shafts import Shaft
+from .components.utils import check_key
 
 ###############################################################################
 
