@@ -69,7 +69,7 @@ Use package imports from `drivetrain`:
 ```python
 from drivetrain import NREL_5MW
 from drivetrain.Gear import GearSet
-from drivetrain.ISO_6336 import ISO_6336
+from drivetrain.iso6336 import ISO_6336
 ```
 
 ## Roadmap
