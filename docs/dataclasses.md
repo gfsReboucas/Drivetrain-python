@@ -32,3 +32,7 @@ short import style:
 ```python
 from drivetrain.components import Material, Rack, Bearing, Shaft
 ```
+
+
+- `drivetrain.components.configs.DrivetrainConfig` provides an optional passive input
+  bundle for `Drivetrain` constructor arguments while preserving existing defaults.
