@@ -28,3 +28,22 @@ The regression test uses the tolerances stored in the fixture metadata:
 The Python test does not require MATLAB at runtime. MATLAB remains the source
 definition for the fixture, while the committed JSON keeps CI and local testing
 reproducible on machines without MATLAB.
+
+## Torsional 2DOF Modal Model
+
+The torsional 2DOF validation test uses a two-inertia analytical system with
+one equivalent shaft stiffness. The generalized eigenproblem has:
+
+- one rigid-body mode at `0 Hz`
+- one elastic torsional mode
+
+For rotor inertia `J_R`, reflected generator inertia `J_G U^2`, and equivalent
+shaft stiffness `k_eq`, the non-zero natural frequency is:
+
+```text
+f = sqrt(k_eq * (1 / J_R + 1 / (J_G U^2))) / (2 pi)
+```
+
+The rigid-body mode shape is expected to be equal angular motion of both
+coordinates. The implementation normalizes each mode by its largest component,
+so the rigid-body mode is checked as `[1, 1]`.
