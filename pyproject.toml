@@ -25,3 +25,6 @@ dev = [
 
 [tool.setuptools.packages.find]
 include = ["drivetrain*"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
