@@ -73,3 +73,17 @@ def test_carrier_derives_geometry_and_inertia():
     assert carrier.b_g == 491.0
     np.testing.assert_allclose(carrier.d_a, 2.6 * carrier.a_w)
     assert carrier.mass > 0.0
+
+
+from drivetrain.components import DrivetrainConfig
+from drivetrain.Drivetrain import Drivetrain
+
+
+def test_drivetrain_config_is_dataclass_and_keeps_default_behavior():
+    assert is_dataclass(DrivetrainConfig)
+
+    config = DrivetrainConfig(N_st=1)
+    drivetrain = Drivetrain(config=config, stage=[Drivetrain().stage[0]])
+
+    assert drivetrain.N_st == 1
+    assert len(drivetrain.stage) == 1

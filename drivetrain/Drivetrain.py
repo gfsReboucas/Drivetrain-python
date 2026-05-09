@@ -11,11 +11,25 @@ from .components.shafts import Shaft
 from .Gear import GearSet
 from .dynamic_formulation import torsional_2DOF, Kahraman_94, Lin_Parker_99
 from .iso6336 import ISO_6336
+from .components.configs import DrivetrainConfig
 
 class Drivetrain:
     '''
     '''
-    def __init__(self, **kwargs):
+    def __init__(self, config: DrivetrainConfig | None = None, **kwargs):
+        if config is not None:
+            if config.stage is not None:
+                kwargs.setdefault("stage", config.stage)
+            if config.main_shaft is not None:
+                kwargs.setdefault("main_shaft", config.main_shaft)
+            kwargs.setdefault("N_st", config.N_st)
+            kwargs.setdefault("P_rated", config.P_rated)
+            kwargs.setdefault("n_rated", config.n_rated)
+            kwargs.setdefault("m_Rotor", config.m_Rotor)
+            kwargs.setdefault("J_Rotor", config.J_Rotor)
+            kwargs.setdefault("m_Gen", config.m_Gen)
+            kwargs.setdefault("J_Gen", config.J_Gen)
+            kwargs.setdefault("dynamic_model", config.dynamic_model)
         # [-],      Number of stages:
         self.N_st        = kwargs['N_st']       if('N_st'          in kwargs) else 3
         # [-],      gearbox stages:
@@ -181,7 +195,20 @@ class NREL_5MW(Drivetrain):
         https://doi.org/10.1002/9781119097808.ch3
     '''
     
-    def __init__(self, **kwargs):
+    def __init__(self, config: DrivetrainConfig | None = None, **kwargs):
+        if config is not None:
+            if config.stage is not None:
+                kwargs.setdefault("stage", config.stage)
+            if config.main_shaft is not None:
+                kwargs.setdefault("main_shaft", config.main_shaft)
+            kwargs.setdefault("N_st", config.N_st)
+            kwargs.setdefault("P_rated", config.P_rated)
+            kwargs.setdefault("n_rated", config.n_rated)
+            kwargs.setdefault("m_Rotor", config.m_Rotor)
+            kwargs.setdefault("J_Rotor", config.J_Rotor)
+            kwargs.setdefault("m_Gen", config.m_Gen)
+            kwargs.setdefault("J_Gen", config.J_Gen)
+            kwargs.setdefault("dynamic_model", config.dynamic_model)
         name = ['m_n1', 'b_1', 'd_1', 'L_1',  # Stage 01
                 'm_n2', 'b_2', 'd_2', 'L_2',  # Stage 02
                 'm_n3', 'b_3', 'd_3', 'L_3',  # Stage 03
