@@ -585,6 +585,37 @@ class Shaft:
         #     K = (K + K.T)/2
         
         return K
+
+    def damping_matrix(self, option, beta=0.01):
+        return beta*self.stiffness_matrix(option)
+
+    def critical_speed(self):
+        '''
+        Returns the shaft first critical speed, [Hz].
+
+        This follows the MATLAB Shaft.critical_speed implementation for a
+        uniform circular shaft using the first bending mode approximation.
+        '''
+        E = Material().E
+        L = self.L*1.0e-3
+        omega_1 = np.sqrt(E*self.I_y/(self.mass/L))*(np.pi/L)**2
+        return omega_1/(2.0*np.pi)
+
+    def safety_factors(self, K_f, K_fs, T_m):
+        '''
+        Calculates shaft fatigue and yielding safety factors.
+
+        This is the MATLAB-compatible public wrapper. The lower-level
+        fatigue_yield_safety method expects strengths in MPa.
+        '''
+        material = Material()
+        return self.fatigue_yield_safety(
+            material.S_ut*1.0e-6,
+            material.S_y*1.0e-6,
+            K_f,
+            K_fs,
+            T_m,
+        )
     
     def fatigue_yield_safety(self, S_ut, S_y, K_f, K_fs, T_m):
         '''

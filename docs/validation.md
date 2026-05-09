@@ -47,3 +47,27 @@ f = sqrt(k_eq * (1 / J_R + 1 / (J_G U^2))) / (2 pi)
 The rigid-body mode shape is expected to be equal angular motion of both
 coordinates. The implementation normalizes each mode by its largest component,
 so the rigid-body mode is checked as `[1, 1]`.
+
+## Shaft Calculations
+
+The shaft regression tests cover a first slice of the MATLAB `Shaft.m`
+calculation behavior:
+
+- torsional stiffness
+- mass, area, and polar inertia
+- first critical speed
+- proportional damping matrix
+- fatigue/yield safety wrapper
+
+The critical-speed check follows the MATLAB expression for a uniform circular
+shaft:
+
+```text
+omega_1 = sqrt(E * I_y / (mass / L)) * (pi / L)^2
+f_1 = omega_1 / (2 pi)
+```
+
+Strength inputs for the lower-level fatigue calculation are kept in MPa for
+compatibility with the existing Python method. The public `safety_factors`
+wrapper converts the default material strengths from Pa to MPa before calling
+that lower-level calculation.
