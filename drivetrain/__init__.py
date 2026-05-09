@@ -1,6 +1,6 @@
 """Public package interface for drivetrain models."""
 
-from .components import Bearing, Material, Rack, Shaft, check_key
+from .components import Bearing, Material, Rack, Shaft
 from .Drivetrain import Drivetrain, NREL_5MW
 from .Gear import Carrier, Gear, GearSet
 from .ISO_6336 import ISO_6336
@@ -20,7 +20,6 @@ __all__ = [
     "NREL_5MW",
     "Rack",
     "Shaft",
-    "check_key",
     "model",
     "torsional_2DOF",
 ]

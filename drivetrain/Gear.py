@@ -17,7 +17,7 @@ from .components.bearings import Bearing
 from .components.materials import Material
 from .components.racks import Rack
 from .components.shafts import Shaft
-from .components.utils import check_key
+from .components.utils import scaling_factor
 
 ###############################################################################
 
@@ -438,8 +438,8 @@ class GearSet(Gear):
             self.output_shaft.rectangle(C_s, color[4])
     
     def apply_lambda(self, gamma):
-        mn  = self.m_n*check_key('m_n', gamma)
-        bb  = self.b*check_key('b', gamma)
+        mn  = self.m_n*scaling_factor('m_n', gamma)
+        bb  = self.b*scaling_factor('b', gamma)
         sha = self.output_shaft.apply_lambda(gamma)
         aw  = self.a_w*(Rack.module(mn)/self.m_n)
         

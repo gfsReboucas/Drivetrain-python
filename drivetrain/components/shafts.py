@@ -8,7 +8,7 @@ import numpy as np
 import scipy.linalg as la
 
 from .materials import Material
-from .utils import check_key
+from .utils import scaling_factor
 
 @dataclass
 class Shaft:
@@ -81,8 +81,8 @@ class Shaft:
         ax.add_patch(rect)
     
     def apply_lambda(self, gamma):
-        dd = self.d*check_key('d', gamma)
-        LL = self.L*check_key('L', gamma)
+        dd = self.d*scaling_factor('d', gamma)
+        LL = self.L*scaling_factor('L', gamma)
         
         return Shaft(dd, LL)
     
