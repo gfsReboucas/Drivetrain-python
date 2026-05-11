@@ -44,8 +44,9 @@ Goal: port and validate reduced-order dynamics.
 - Start with torsional 2DOF.
 - Port Kahraman 1994 formulation.
 - Port Lin and Parker 1999 formulation after core matrices are tested.
-- Add modal analysis utilities.
-- Add time-integration utilities only after modal tests are stable.
+- Add base linear-system utilities for state-space assembly, modal truncation, and frequency response.
+- Defer drivetrain time-response workflows, Newmark, Wilson, and Bathe integration helpers until deterministic reference tests are added for each solver.
+- Defer formulation-specific force vectors, DOF descriptions, and export/disp helpers until the higher-order formulations expose stable matrix layouts.
 
 Deliverable: modal frequencies and mode shapes validated against MATLAB and notebook examples.
 
