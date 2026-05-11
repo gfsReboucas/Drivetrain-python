@@ -1,4 +1,18 @@
-"""Lin and Parker 1999 drivetrain dynamic formulations."""
+"""Lin and Parker 1999 drivetrain dynamic formulations.
+
+References:
+    [1] J. Lin and R. G. Parker, "Analytical Characterization of the Unique
+        Properties of Planetary Gear Free Vibration", Journal of Vibration and
+        Acoustics, vol. 121, no. 3, pp. 316-321, 1999.
+        https://doi.org/10.1115/1.2893982
+    [2] J. Lin, "Analytical investigation of planetary gear dynamics", Ph.D.
+        thesis, Ohio State University, 2000.
+        http://rave.ohiolink.edu/etdc/view?acc_num=osu1488203552779634
+    [3] C. G. Cooley and R. G. Parker, "Vibration Properties of High-Speed
+        Planetary Gears With Gyroscopic Effects", Journal of Vibration and
+        Acoustics, vol. 134, no. 6, Dec. 2012.
+        https://doi.org/10.1115/1.4006646
+"""
 
 import numpy as np
 import scipy.linalg as la
@@ -7,13 +21,6 @@ from .base import model
 
 
 class Lin_Parker_99(model):
-    def __init__(self, dtrain):
-        super().__init__(dtrain)
-
-        self.n_DOF = self.__calc_
-
-
-class Lin_Parker_99_mod(model):
     def __init__(self, dtrain):
         super().__init__(dtrain)
         
@@ -67,12 +74,12 @@ class Lin_Parker_99_mod(model):
         for i in range(DT.N_st):
             sub_range = slice(N[i + 1] - 3, N[i + 2])
             M[sub_range, 
-              sub_range] += Lin_Parker_99.__stage_inertia_matrix(DT.stage[i])
+              sub_range] += Lin_Parker_99.stage_inertia_matrix(DT.stage[i])
     
         return M
     
     @staticmethod
-    def __stage_inertia_matrix(stage):
+    def stage_inertia_matrix(stage):
 
         M_ = lambda m, J: np.diag([m, m, J])
 
@@ -96,6 +103,8 @@ class Lin_Parker_99_mod(model):
         M[-6:, -6:] += stage.output_shaft.inertia_matrix('Lin_Parker_99')*0
         
         return M
+
+    __stage_inertia_matrix = stage_inertia_matrix
         
     def __stiffness_matrix(self):
         DT = self.drivetrain
@@ -112,7 +121,7 @@ class Lin_Parker_99_mod(model):
             sub_range] += DT.main_shaft.stiffness_matrix('Lin_Parker_99')*0
         
         for i in range(DT.N_st):
-            stiff = Lin_Parker_99.__stage_stiffness_matrix(DT.stage[i])
+            stiff = Lin_Parker_99.stage_stiffness_matrix(DT.stage[i])
 
             sub_range = slice(N[i + 1] - 3, N[i + 2])
             K_b[    sub_range, sub_range] += stiff['K_b']
@@ -124,7 +133,7 @@ class Lin_Parker_99_mod(model):
                 'K_Omega': K_Omega}
 
     @staticmethod
-    def __stage_stiffness_matrix(stage):
+    def stage_stiffness_matrix(stage):
 
         # Bearing stiffness sub-matrix:
         K_b_ = lambda x, y: np.diag([x, y, 0])
@@ -290,6 +299,8 @@ class Lin_Parker_99_mod(model):
         return {'K_b'    : K_b,
                 'K_m'    : K_m,
                 'K_Omega': K_Omega}
+
+    __stage_stiffness_matrix = stage_stiffness_matrix
 
     @staticmethod
     def testing():
