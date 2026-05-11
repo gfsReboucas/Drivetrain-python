@@ -6,7 +6,7 @@ import numpy as np
 from ..components.bearings import Bearing
 from ..components.configs import DrivetrainConfig
 from ..components.shafts import Shaft
-from ..Gear import GearSet
+from ..gears import GearSet
 from ..dynamic_formulation import torsional_2DOF
 from .drivetrain import Drivetrain
 

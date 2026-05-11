@@ -3,7 +3,7 @@
 
 import numpy as np
 
-from ..Gear import GearSet
+from ..gears import GearSet
 from .calculator import ISO_6336
 
 

@@ -1,6 +1,6 @@
 import numpy as np
 
-from drivetrain.Gear import GearSet
+from drivetrain.gears import GearSet
 from drivetrain.iso6336 import ISO_6336
 
 

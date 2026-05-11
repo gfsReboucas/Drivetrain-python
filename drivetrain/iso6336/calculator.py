@@ -3,7 +3,7 @@
 
 import numpy as np
 
-from ..Gear import GearSet
+from ..gears import GearSet
 from ..components.materials import Material
 from .factors import (
     _contact_ratio_factor,

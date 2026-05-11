@@ -4,7 +4,7 @@ import pytest
 
 
 def test_gearset_has_no_kisssoft_method():
-    from drivetrain.Gear import GearSet
+    from drivetrain.gears import GearSet
 
     assert not hasattr(GearSet, "KISSsoft")
 

@@ -7,7 +7,7 @@ Created on Fri Mar 27 14:04:56 2020
 import numpy as np
 import scipy.linalg as la
 
-from .Gear import GearSet
+from .gears import GearSet
 # import Drivetrain
 
 class model:

@@ -2,7 +2,7 @@ from dataclasses import is_dataclass
 
 import numpy as np
 
-from drivetrain.Gear import Carrier
+from drivetrain.gears import Carrier
 from drivetrain.components import Bearing, Material, Rack, Shaft
 from drivetrain.components.bearings import Bearing as BearingModuleImport
 from drivetrain.components.materials import Material as MaterialModuleImport
