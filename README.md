@@ -73,6 +73,10 @@ from drivetrain.Gear import GearSet
 from drivetrain.iso6336 import ISO_6336
 ```
 
+`Drivetrain` is an abstract base model, following the MATLAB implementation.
+Use concrete reference models such as `NREL_5MW` for ready-made drivetrain data,
+or subclass `Drivetrain` with explicit stages and shafts.
+
 ## Roadmap
 
 See [docs/roadmap.md](docs/roadmap.md) for the migration plan and [docs/github-project.md](docs/github-project.md) for a GitHub issue backlog.

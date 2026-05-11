@@ -12,6 +12,12 @@ from drivetrain.components import DrivetrainConfig
 from drivetrain.models import Drivetrain, NREL_5MW
 
 
+class ConcreteDrivetrain(Drivetrain):
+    @property
+    def reference_model(self):
+        return "test"
+
+
 class StaticDynamicModel:
     def __init__(self, drivetrain):
         self.f_n = np.array([1.0])
@@ -87,11 +93,22 @@ def test_drivetrain_config_is_dataclass_and_keeps_default_behavior():
     assert is_dataclass(DrivetrainConfig)
 
     stage = [NREL_5MW.gear_set(0)]
-    config = DrivetrainConfig(N_st=1, dynamic_model=StaticDynamicModel)
-    drivetrain = Drivetrain(config=config, stage=stage)
+    main_shaft = Shaft(111.0, 222.0)
+    config = DrivetrainConfig(N_st=1, stage=stage, main_shaft=main_shaft, dynamic_model=StaticDynamicModel)
+    drivetrain = ConcreteDrivetrain(config=config)
 
     assert drivetrain.N_st == 1
     assert len(drivetrain.stage) == 1
+
+
+def test_drivetrain_base_is_abstract_and_has_no_nrel_defaults():
+    assert bool(getattr(Drivetrain, "__abstractmethods__", set()))
+    with np.testing.assert_raises(TypeError):
+        Drivetrain()
+
+    stage = [NREL_5MW.gear_set(0)]
+    with np.testing.assert_raises(ValueError):
+        ConcreteDrivetrain(stage=stage, dynamic_model=StaticDynamicModel)
 
 
 def test_nrel_5mw_config_values_override_reference_defaults():

@@ -37,3 +37,6 @@ from drivetrain.components import Material, Rack, Bearing, Shaft
 - `drivetrain.components.configs.DrivetrainConfig` provides an optional passive input
   bundle for `Drivetrain` constructor arguments while preserving existing defaults.
   The drivetrain classes are exported from `drivetrain.models`.
+- The Python `Drivetrain` base class follows the MATLAB `classdef (Abstract)
+  Drivetrain` design: concrete reference data belongs in subclasses such as
+  `NREL_5MW`, not in hidden base-class defaults.

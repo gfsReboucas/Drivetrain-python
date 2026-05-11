@@ -32,7 +32,11 @@ class NREL_5MW(Drivetrain):
         Tande, K. Uhlen and K. Merz). 
         https://doi.org/10.1002/9781119097808.ch3
     '''
-    
+
+    @property
+    def reference_model(self):
+        return "NREL_5MW"
+
     def __init__(self, config: DrivetrainConfig | None = None, **kwargs):
         if config is not None:
             if config.stage is not None:

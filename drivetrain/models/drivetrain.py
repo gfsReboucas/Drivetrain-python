@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """Core drivetrain model."""
 
+from abc import ABC, abstractmethod
 from json import dumps
 
 import numpy as np
@@ -10,9 +11,14 @@ from ..dynamic_formulation import torsional_2DOF
 from ..iso6336 import ISO_6336
 
 
-class Drivetrain:
+class Drivetrain(ABC):
     '''
     '''
+    @property
+    @abstractmethod
+    def reference_model(self):
+        """Name of the concrete drivetrain model."""
+
     def __init__(self, config: DrivetrainConfig | None = None, **kwargs):
         if config is not None:
             if config.stage is not None:
@@ -27,16 +33,20 @@ class Drivetrain:
             kwargs.setdefault("m_Gen", config.m_Gen)
             kwargs.setdefault("J_Gen", config.J_Gen)
             kwargs.setdefault("dynamic_model", config.dynamic_model)
+        missing = [name for name in ("stage", "main_shaft") if name not in kwargs]
+        if missing:
+            raise ValueError("Drivetrain requires explicit {}".format(", ".join(missing)))
+
         # [-],      Number of stages:
-        self.N_st        = kwargs['N_st']       if('N_st'          in kwargs) else 3
+        self.N_st        = kwargs['N_st']       if('N_st'          in kwargs) else len(kwargs['stage'])
         # [-],      gearbox stages:
-        self.stage       = kwargs['stage']      if('stage'         in kwargs) else self._default_stages()
+        self.stage       = kwargs['stage']
         #[kW],     Rated power:
         self.P_rated     = kwargs['P_rated']    if('P_rated'       in kwargs) else 5.0e3
         #[1/min.], Rated input speed
         self.n_rated     = kwargs['n_rated']    if('n_rated'       in kwargs) else 12.1
         #[-],      Input Shaft:
-        self.main_shaft  = kwargs['main_shaft'] if('main_shaft'   in kwargs) else self._default_main_shaft()
+        self.main_shaft  = kwargs['main_shaft']
         # [kg],     Rotor mass:
         self.m_Rotor     = kwargs['m_Rotor']    if('m_Rotor'       in kwargs) else 110.0e3
         # [kg-m**2], Rotor mass moment of inertia:
@@ -84,19 +94,6 @@ class Drivetrain:
         self.f_n = DM.f_n
         self.mode_shape = DM.mode_shape
     
-
-    @staticmethod
-    def _default_stages():
-        from .nrel_5mw import NREL_5MW
-
-        return [NREL_5MW.gear_set(idx) for idx in range(3)]
-
-    @staticmethod
-    def _default_main_shaft():
-        from .nrel_5mw import NREL_5MW
-
-        return NREL_5MW.shaft(-1)
-
     def __repr__(self):
         
         conf = [self.stage[i].configuration for i in range(self.N_st)]
