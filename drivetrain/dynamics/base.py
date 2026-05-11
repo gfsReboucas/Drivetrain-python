@@ -13,6 +13,7 @@ vector, and ``b`` maps external loads into the dynamic coordinates.
 
 import numpy as np
 import scipy.linalg as la
+from scipy.integrate import solve_ivp
 
 
 class model:
@@ -215,6 +216,83 @@ class model:
             "solver": "Newmark",
             "delta": delta,
             "alpha": alpha,
+            "t": time,
+            "x": position,
+            "v": velocity,
+            "a": acceleration,
+        }
+
+    @staticmethod
+    def time_response(time, x0, v0, M, D, K, load, method="solve_ivp", **kwargs):
+        """Calculate time response for a linear second-order dynamic system.
+
+        The default ``method="solve_ivp"`` uses SciPy's adaptive ODE solver on
+        the equivalent first-order state-space system. ``"newmark"``,
+        ``"wilson"``, and ``"bathe"`` select the fixed-step structural
+        dynamics helpers implemented in this module. For ``solve_ivp``,
+        ``time`` is the output grid passed as ``t_eval``; the solver chooses
+        internal steps adaptively.
+        """
+        method_key = method.lower()
+        if method_key == "newmark":
+            return model.newmark(time, x0, v0, M, D, K, load, **kwargs)
+        if method_key == "wilson":
+            return model.wilson(time, x0, v0, M, D, K, load, **kwargs)
+        if method_key == "bathe":
+            return model.bathe(time, x0, v0, M, D, K, load)
+        if method_key != "solve_ivp":
+            raise ValueError("method must be 'solve_ivp', 'newmark', 'wilson', or 'bathe'")
+
+        time, x0, v0, mass, damping, stiffness, load = model._prepare_time_integration_inputs(
+            time, x0, v0, M, D, K, load
+        )
+
+        method_name = kwargs.pop("ivp_method", kwargs.pop("scipy_method", "Radau"))
+        rtol = kwargs.pop("rtol", 1.0e-9)
+        atol = kwargs.pop("atol", 1.0e-11)
+        if kwargs:
+            unknown = "', '".join(sorted(kwargs))
+            raise TypeError(f"unexpected solve_ivp option(s): '{unknown}'")
+
+        n = mass.shape[0]
+        initial_state = np.concatenate([x0, v0])
+
+        def load_at(t):
+            return np.array([np.interp(t, time, load_row) for load_row in load])
+
+        def state_derivative(t, state):
+            position = state[:n]
+            velocity = state[n:]
+            acceleration = la.solve(
+                mass,
+                load_at(t) - damping @ velocity - stiffness @ position,
+            )
+            return np.concatenate([velocity, acceleration])
+
+        solution = solve_ivp(
+            state_derivative,
+            (time[0], time[-1]),
+            initial_state,
+            t_eval=time,
+            method=method_name,
+            rtol=rtol,
+            atol=atol,
+        )
+        if not solution.success:
+            raise RuntimeError(f"solve_ivp failed: {solution.message}")
+
+        position = solution.y[:n]
+        velocity = solution.y[n:]
+        acceleration = np.column_stack(
+            [
+                la.solve(mass, load[:, i] - damping @ velocity[:, i] - stiffness @ position[:, i])
+                for i in range(time.size)
+            ]
+        )
+
+        return {
+            "solver": "solve_ivp",
+            "method": method_name,
             "t": time,
             "x": position,
             "v": velocity,

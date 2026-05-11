@@ -121,6 +121,63 @@ def test_newmark_linear_single_dof_starts_from_consistent_acceleration():
     assert solution["a"].shape == (1, time.size)
 
 
+def test_time_response_defaults_to_scipy_solve_ivp():
+    time = np.linspace(0.0, 1.0, 11)
+    load = np.ones(time.size)
+
+    solution = DynamicModel.time_response(
+        time,
+        x0=np.array([0.0]),
+        v0=np.array([0.0]),
+        M=np.array([[2.0]]),
+        D=np.array([[0.0]]),
+        K=np.array([[0.0]]),
+        load=load,
+    )
+
+    expected_acceleration = np.full((1, time.size), 0.5)
+    expected_velocity = time[np.newaxis, :]*0.5
+    expected_position = 0.25*time[np.newaxis, :]**2
+
+    assert solution["solver"] == "solve_ivp"
+    assert solution["method"] == "Radau"
+    np.testing.assert_allclose(solution["a"], expected_acceleration, atol=1e-9)
+    np.testing.assert_allclose(solution["v"], expected_velocity, atol=1e-9)
+    np.testing.assert_allclose(solution["x"], expected_position, atol=1e-9)
+
+
+def test_time_response_dispatches_to_fixed_step_helpers():
+    time = np.linspace(0.0, 0.2, 3)
+    mass = np.array([[2.0]])
+    damping = np.array([[0.0]])
+    stiffness = np.array([[0.0]])
+    load = np.ones(time.size)
+
+    newmark = DynamicModel.time_response(
+        time,
+        x0=np.array([0.0]),
+        v0=np.array([0.0]),
+        M=mass,
+        D=damping,
+        K=stiffness,
+        load=load,
+        method="newmark",
+    )
+    bathe = DynamicModel.time_response(
+        time,
+        x0=np.array([0.0]),
+        v0=np.array([0.0]),
+        M=mass,
+        D=damping,
+        K=stiffness,
+        load=load,
+        method="bathe",
+    )
+
+    assert newmark["solver"] == "Newmark"
+    assert bathe["solver"] == "Bathe"
+
+
 def test_wilson_free_mass_constant_force_matches_exact_response():
     time = np.linspace(0.0, 1.0, 11)
     load = np.ones(time.size)
