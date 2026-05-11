@@ -186,3 +186,31 @@ def test_wilson_accepts_matlab_five_dof_reference_problem_shape():
     assert solution["v"].shape == (n, time.size)
     assert solution["a"].shape == (n, time.size)
     assert np.all(np.isfinite(solution["x"]))
+
+
+def test_bathe_matches_matlab_reference_example():
+    expected_position = np.array(
+        [
+            [0.0, 0.00458, 0.0445, 0.183, 0.486, 0.979, 1.62, 2.28, 2.81, 3.03, 2.83, 2.21, 1.28],
+            [0.0, 0.373, 1.38, 2.73, 4.04, 4.97, 5.31, 5.06, 4.38, 3.55, 2.85, 2.46, 2.40],
+        ]
+    )
+    mass = np.diag([2.0, 1.0])
+    stiffness = np.array([[6.0, -2.0], [-2.0, 4.0]])
+    damping = np.zeros((2, 2))
+    time = np.arange(13)*0.28
+    load = np.tile(np.array([[0.0], [10.0]]), (1, time.size))
+
+    solution = DynamicModel.bathe(
+        time,
+        x0=np.zeros(2),
+        v0=np.zeros(2),
+        M=mass,
+        D=damping,
+        K=stiffness,
+        load=load,
+    )
+
+    assert solution["solver"] == "Bathe"
+    np.testing.assert_allclose(solution["t"], time)
+    np.testing.assert_allclose(solution["x"], expected_position, atol=5e-3)

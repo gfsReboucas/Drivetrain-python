@@ -277,6 +277,80 @@ class model:
             "a": acceleration,
         }
 
+    @staticmethod
+    def bathe(time, x0, v0, M, D, K, load):
+        """Solve a linear second-order system with Bathe's two-substep method."""
+        time, x0, v0, mass, damping, stiffness, load = model._prepare_time_integration_inputs(
+            time, x0, v0, M, D, K, load
+        )
+
+        dt = time[1] - time[0]
+        n = mass.shape[0]
+        nt = time.size
+
+        position = np.zeros((n, nt))
+        velocity = np.zeros_like(position)
+        acceleration = np.zeros_like(position)
+
+        a1 = 16.0/(dt**2)
+        a2 = 4.0/dt
+        a3 = 9.0/(dt**2)
+        a4 = 3.0/dt
+        a5 = 2.0*a2
+        a6 = 12.0/(dt**2)
+        a7 = -3.0/(dt**2)
+        a8 = -1.0/dt
+
+        effective_stiffness_1 = stiffness + a1*mass + a2*damping
+        effective_stiffness_2 = stiffness + a3*mass + a4*damping
+        load_midpoint = (load[:, :-1] + load[:, 1:])/2.0
+
+        position[:, 0] = x0
+        velocity[:, 0] = v0
+        acceleration[:, 0] = la.solve(
+            mass,
+            load[:, 0] - damping @ velocity[:, 0] - stiffness @ position[:, 0],
+        )
+
+        for i in range(nt - 1):
+            effective_load_1 = (
+                load_midpoint[:, i]
+                + mass @ (a1*position[:, i] + a5*velocity[:, i] + acceleration[:, i])
+                + damping @ (a2*position[:, i] + velocity[:, i])
+            )
+            position_midpoint = la.solve(effective_stiffness_1, effective_load_1)
+            velocity_midpoint = a2*(position_midpoint - position[:, i]) - velocity[:, i]
+
+            effective_load_2 = (
+                load[:, i + 1]
+                + mass @ (
+                    a6*position_midpoint
+                    + a7*position[:, i]
+                    + a2*velocity_midpoint
+                    + a8*velocity[:, i]
+                )
+                + damping @ (a2*position_midpoint + a8*position[:, i])
+            )
+            position[:, i + 1] = la.solve(effective_stiffness_2, effective_load_2)
+            velocity[:, i + 1] = (
+                -a8*position[:, i]
+                - a2*position_midpoint
+                + a4*position[:, i + 1]
+            )
+            acceleration[:, i + 1] = (
+                -a8*velocity[:, i]
+                - a2*velocity_midpoint
+                + a4*velocity[:, i + 1]
+            )
+
+        return {
+            "solver": "Bathe",
+            "t": time,
+            "x": position,
+            "v": velocity,
+            "a": acceleration,
+        }
+
     def _matrix_size(self):
         return self._square_matrix(self.M, "M").shape[0]
 
