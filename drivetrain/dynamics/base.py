@@ -131,6 +131,100 @@ class model:
             "Phi": phi,
         }
 
+    @staticmethod
+    def newmark(time, x0, v0, M, D, K, load, option="average"):
+        """Solve a linear second-order system with the Newmark method.
+
+        The system is M x'' + D x' + K x = load. ``option`` can be
+        ``"average"`` for the average-acceleration method or ``"linear"`` for
+        the linear-acceleration method.
+        """
+        delta = 0.5
+        option_key = option.lower()
+        if option_key == "average":
+            alpha = 0.25
+        elif option_key == "linear":
+            alpha = 1.0/6.0
+        else:
+            raise ValueError("option must be 'average' or 'linear'")
+
+        time = np.asarray(time, dtype=float)
+        if time.ndim != 1 or time.size < 2:
+            raise ValueError("time must be a one-dimensional array with at least two points")
+
+        dt = time[1] - time[0]
+        if not np.allclose(np.diff(time), dt):
+            raise ValueError("time spacing must be constant")
+
+        mass = model._square_matrix(M, "M")
+        damping = model._square_matrix(D, "D")
+        stiffness = model._square_matrix(K, "K")
+        model._require_same_shape(mass, damping, stiffness)
+
+        x0 = np.atleast_1d(np.asarray(x0, dtype=float))
+        v0 = np.atleast_1d(np.asarray(v0, dtype=float))
+        if x0.shape != (mass.shape[0],) or v0.shape != (mass.shape[0],):
+            raise ValueError("x0 and v0 must have one value per dynamic DOF")
+
+        load = np.asarray(load, dtype=float)
+        if load.ndim == 1:
+            load = load[np.newaxis, :]
+        if load.shape != (mass.shape[0], time.size):
+            raise ValueError("load must have shape (n_dof, n_time)")
+
+        n = mass.shape[0]
+        nt = time.size
+        position = np.zeros((n, nt))
+        velocity = np.zeros_like(position)
+        acceleration = np.zeros_like(position)
+
+        a1 = 1.0/(alpha*dt**2)
+        a2 = delta/(alpha*dt)
+        a3 = 1.0/(alpha*dt)
+        a4 = 1.0/(2.0*alpha) - 1.0
+        a5 = delta/alpha - 1.0
+        a6 = (dt/2.0)*(delta/alpha - 2.0)
+        a7 = dt*(1.0 - delta)
+        a8 = delta*dt
+
+        effective_stiffness = a1*mass + a2*damping + stiffness
+
+        position[:, 0] = x0
+        velocity[:, 0] = v0
+        acceleration[:, 0] = la.solve(
+            mass,
+            load[:, 0] - damping @ velocity[:, 0] - stiffness @ position[:, 0],
+        )
+
+        for i in range(nt - 1):
+            effective_load = (
+                load[:, i + 1]
+                + mass @ (a1*position[:, i] + a3*velocity[:, i] + a4*acceleration[:, i])
+                + damping @ (a2*position[:, i] + a5*velocity[:, i] + a6*acceleration[:, i])
+            )
+
+            position[:, i + 1] = la.solve(effective_stiffness, effective_load)
+            acceleration[:, i + 1] = (
+                a1*(position[:, i + 1] - position[:, i])
+                - a3*velocity[:, i]
+                - a4*acceleration[:, i]
+            )
+            velocity[:, i + 1] = (
+                velocity[:, i]
+                + a7*acceleration[:, i]
+                + a8*acceleration[:, i + 1]
+            )
+
+        return {
+            "solver": "Newmark",
+            "delta": delta,
+            "alpha": alpha,
+            "t": time,
+            "x": position,
+            "v": velocity,
+            "a": acceleration,
+        }
+
     def _matrix_size(self):
         return self._square_matrix(self.M, "M").shape[0]
 
