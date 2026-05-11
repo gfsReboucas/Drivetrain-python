@@ -29,3 +29,12 @@ def test_lin_parker_99_stage_matrix_dimensions_for_nrel_stages():
     assert parallel_stiffness["K_b"].shape == (9, 9)
     assert parallel_stiffness["K_m"].shape == (9, 9)
     assert parallel_stiffness["K_Omega"].shape == (9, 9)
+
+
+def test_lin_parker_99_stage_stiffness_matrices_are_symmetric():
+    for stage_index in range(3):
+        stiffness = Lin_Parker_99.stage_stiffness_matrix(NREL_5MW.gear_set(stage_index))
+
+        np.testing.assert_allclose(stiffness["K_b"], stiffness["K_b"].T)
+        np.testing.assert_allclose(stiffness["K_m"], stiffness["K_m"].T)
+        np.testing.assert_allclose(stiffness["K_Omega"], stiffness["K_Omega"].T)

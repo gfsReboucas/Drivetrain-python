@@ -138,7 +138,7 @@ class Lin_Parker_99(model):
         # Bearing stiffness sub-matrix:
         K_b_ = lambda x, y: np.diag([x, y, 0])
         
-        alpha_n = stage.alpha_n
+        alpha_n = np.radians(stage.alpha_n)
 
         psi   = lambda i: (i - 1)*(2*np.pi/stage.N_p)
         psi_s = lambda i: psi(i) - alpha_n
@@ -193,8 +193,9 @@ class Lin_Parker_99(model):
             k_wy = b_w.k_z
 
             k = stage.k_mesh
-            K_m = np.block([[K_s3(k) + K_c3(k_wx, k_wy), K_s2(k, 1)],
-                         [K_s2(k, 1)                , K_s1(k, 1)]])
+            mesh_coupling = K_s2(k, 1)
+            K_m = np.block([[K_s3(k) + K_c3(k_wx, k_wy), mesh_coupling.T],
+                         [mesh_coupling              , K_s1(k, 1)]])
 
             K_m = la.block_diag(K_m, Z3)
             
