@@ -1,4 +1,15 @@
-"""Base classes and utilities for drivetrain dynamic formulations."""
+"""Base classes and utilities for drivetrain dynamic formulations.
+
+Drivetrain equations of motion are modeled in the form
+
+    M q_ddot + (D + Omega_c G) q_dot + (K_m + K_b - Omega_c**2 K_Omega) q
+        = Omega_c**2 c + b [T, F]
+
+where ``q`` is the displacement vector, ``M`` is inertia, ``D`` is damping,
+``G`` is gyroscopic coupling, ``K_m`` is mesh stiffness, ``K_b`` is bearing
+stiffness, ``K_Omega`` is centripetal stiffness, ``c`` is the centripetal force
+vector, and ``b`` maps external loads into the dynamic coordinates.
+"""
 
 import numpy as np
 import scipy.linalg as la
@@ -138,6 +149,10 @@ class model:
         The system is M x'' + D x' + K x = load. ``option`` can be
         ``"average"`` for the average-acceleration method or ``"linear"`` for
         the linear-acceleration method.
+
+        Reference: K. J. Bathe, *Finite Element Procedures*, 2nd ed.,
+        Watertown, MA: Klaus-Jurgen Bathe, 2014, Table 9.3.
+        http://web.mit.edu/kjb/www/Books/FEP_2nd_Edition_4th_Printing.pdf
         """
         delta = 0.5
         option_key = option.lower()
@@ -279,7 +294,12 @@ class model:
 
     @staticmethod
     def bathe(time, x0, v0, M, D, K, load):
-        """Solve a linear second-order system with Bathe's two-substep method."""
+        """Solve a linear second-order system with Bathe's two-substep method.
+
+        Reference: K. J. Bathe, *Finite Element Procedures*, 2nd ed.,
+        Watertown, MA: Klaus-Jurgen Bathe, 2014, Table 9.4.
+        http://web.mit.edu/kjb/www/Books/FEP_2nd_Edition_4th_Printing.pdf
+        """
         time, x0, v0, mass, damping, stiffness, load = model._prepare_time_integration_inputs(
             time, x0, v0, M, D, K, load
         )
