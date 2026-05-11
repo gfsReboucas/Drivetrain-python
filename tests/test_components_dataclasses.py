@@ -8,6 +8,14 @@ from drivetrain.components.bearings import Bearing as BearingModuleImport
 from drivetrain.components.materials import Material as MaterialModuleImport
 from drivetrain.components.racks import Rack as RackModuleImport
 from drivetrain.components.shafts import Shaft as ShaftModuleImport
+from drivetrain.components import DrivetrainConfig
+from drivetrain.Drivetrain import Drivetrain, NREL_5MW
+
+
+class StaticDynamicModel:
+    def __init__(self, drivetrain):
+        self.f_n = np.array([1.0])
+        self.mode_shape = np.eye(1)
 
 
 def test_core_component_types_are_dataclasses():
@@ -75,15 +83,42 @@ def test_carrier_derives_geometry_and_inertia():
     assert carrier.mass > 0.0
 
 
-from drivetrain.components import DrivetrainConfig
-from drivetrain.Drivetrain import Drivetrain
-
-
 def test_drivetrain_config_is_dataclass_and_keeps_default_behavior():
     assert is_dataclass(DrivetrainConfig)
 
-    config = DrivetrainConfig(N_st=1)
-    drivetrain = Drivetrain(config=config, stage=[Drivetrain().stage[0]])
+    stage = [NREL_5MW.gear_set(0)]
+    config = DrivetrainConfig(N_st=1, dynamic_model=StaticDynamicModel)
+    drivetrain = Drivetrain(config=config, stage=stage)
 
     assert drivetrain.N_st == 1
     assert len(drivetrain.stage) == 1
+
+
+def test_nrel_5mw_config_values_override_reference_defaults():
+    stage = [NREL_5MW.gear_set(0)]
+    main_shaft = Shaft(111.0, 222.0)
+    config = DrivetrainConfig(
+        N_st=1,
+        stage=stage,
+        P_rated=123.0,
+        n_rated=4.5,
+        main_shaft=main_shaft,
+        m_Rotor=10.0,
+        J_Rotor=20.0,
+        m_Gen=30.0,
+        J_Gen=40.0,
+        dynamic_model=StaticDynamicModel,
+    )
+
+    drivetrain = NREL_5MW(config=config)
+
+    assert drivetrain.N_st == 1
+    assert drivetrain.stage is stage
+    assert drivetrain.P_rated == 123.0
+    assert drivetrain.n_rated == 4.5
+    assert drivetrain.main_shaft is main_shaft
+    assert drivetrain.m_Rotor == 10.0
+    assert drivetrain.J_Rotor == 20.0
+    assert drivetrain.m_Gen == 30.0
+    assert drivetrain.J_Gen == 40.0
+    assert drivetrain.dynamic_model is StaticDynamicModel

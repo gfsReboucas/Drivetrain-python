@@ -227,40 +227,60 @@ class NREL_5MW(Drivetrain):
         # Higher-order formulations are still part of the dynamics roadmap.
         dyn_mod    = kwargs['dynamic_model'] if('dynamic_model' in kwargs) else torsional_2DOF
         
-        p_r = 5.0e3*gamma_P
-        n_r = 12.1*gamma_n
+        p_r = kwargs['P_rated'] if('P_rated' in kwargs) else 5.0e3*gamma_P
+        n_r = kwargs['n_rated'] if('n_rated' in kwargs) else 12.1*gamma_n
         
-        m_R = 110.0e3
-        m_R *= self.gamma['m_R'] if('m_R' in self.gamma) else 1.0
-        J_R = 57231535.0
-        J_R *= self.gamma['J_R'] if('J_R' in self.gamma) else 1.0
-        m_G = 1900.0
-        m_G *= self.gamma['m_G'] if('m_G' in self.gamma) else 1.0
-        J_G = 534.116
-        J_G *= self.gamma['J_G'] if('J_G' in self.gamma) else 1.0
+        if('m_Rotor' in kwargs):
+            m_R = kwargs['m_Rotor']
+        else:
+            m_R = 110.0e3
+            m_R *= self.gamma['m_R'] if('m_R' in self.gamma) else 1.0
+        if('J_Rotor' in kwargs):
+            J_R = kwargs['J_Rotor']
+        else:
+            J_R = 57231535.0
+            J_R *= self.gamma['J_R'] if('J_R' in self.gamma) else 1.0
+        if('m_Gen' in kwargs):
+            m_G = kwargs['m_Gen']
+        else:
+            m_G = 1900.0
+            m_G *= self.gamma['m_G'] if('m_G' in self.gamma) else 1.0
+        if('J_Gen' in kwargs):
+            J_G = kwargs['J_Gen']
+        else:
+            J_G = 534.116
+            J_G *= self.gamma['J_G'] if('J_G' in self.gamma) else 1.0
 
-        stage = [None]*3
+        if('stage' in kwargs):
+            stage = kwargs['stage']
+        else:
+            stage = [None]*3
+            for idx in range(3):
+                gm_idx = dict(filter(lambda item: str(idx + 1) in item[0], self.gamma.items()))
+                stage[idx] = NREL_5MW.gear_set(idx).apply_lambda(gm_idx)
         
-        for idx in range(3):
-            gm_idx = dict(filter(lambda item: str(idx + 1) in item[0], self.gamma.items()))
-            stage[idx] = NREL_5MW.gear_set(idx).apply_lambda(gm_idx)
+        if('main_shaft' in kwargs):
+            main_shaft = kwargs['main_shaft']
+        else:
+            inp_shaft = NREL_5MW.shaft(-1)
+            
+            d_s = inp_shaft.d
+            d_s *= self.gamma['d_s'] if('d_s' in self.gamma) else 1.0
+            L_s = inp_shaft.L
+            L_s *= self.gamma['L_s'] if('L_s' in self.gamma) else 1.0
+            main_shaft = Shaft(d_s, L_s)
         
-        inp_shaft = NREL_5MW.shaft(-1)
-        
-        d_s = inp_shaft.d
-        d_s *= self.gamma['d_s'] if('d_s' in self.gamma) else 1.0
-        L_s = inp_shaft.L
-        L_s *= self.gamma['L_s'] if('L_s' in self.gamma) else 1.0
+        n_st = kwargs['N_st'] if('N_st' in kwargs) else 3
         
         super().__init__(P_rated       = p_r,
                          n_rated       = n_r,
                          stage         = stage,
-                         main_shaft    = Shaft(d_s, L_s),
+                         main_shaft    = main_shaft,
                          m_Rotor       = m_R,
                          J_Rotor       = J_R,
                          m_Gen         = m_G,
                          J_Gen         = J_G,
-                         N_st          = 3,
+                         N_st          = n_st,
                          dynamic_model = dyn_mod)
 
     def save(self, filename):
