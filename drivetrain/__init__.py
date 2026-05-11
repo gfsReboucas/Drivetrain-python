@@ -1,9 +1,10 @@
 """Public package interface for drivetrain models."""
 
 from .components import Bearing, Material, Rack, Shaft
-from .Drivetrain import Drivetrain, NREL_5MW
 from .Gear import Carrier, Gear, GearSet
 from .dynamic_formulation import Kahraman_94, Lin_Parker_99, Lin_Parker_99_mod, model, torsional_2DOF
+from . import models
+from .models import Drivetrain, NREL_5MW
 
 __all__ = [
     "Bearing",
@@ -15,6 +16,7 @@ __all__ = [
     "Lin_Parker_99",
     "Lin_Parker_99_mod",
     "Material",
+    "models",
     "NREL_5MW",
     "Rack",
     "Shaft",

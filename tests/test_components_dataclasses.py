@@ -9,7 +9,7 @@ from drivetrain.components.materials import Material as MaterialModuleImport
 from drivetrain.components.racks import Rack as RackModuleImport
 from drivetrain.components.shafts import Shaft as ShaftModuleImport
 from drivetrain.components import DrivetrainConfig
-from drivetrain.Drivetrain import Drivetrain, NREL_5MW
+from drivetrain.models import Drivetrain, NREL_5MW
 
 
 class StaticDynamicModel:
