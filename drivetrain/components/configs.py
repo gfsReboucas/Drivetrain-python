@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 
-from drivetrain.dynamic_formulation import torsional_2DOF
+from drivetrain.dynamics import torsional_2DOF
 
 
 @dataclass

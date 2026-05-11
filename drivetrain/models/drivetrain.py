@@ -7,7 +7,7 @@ from json import dumps
 import numpy as np
 
 from ..components.configs import DrivetrainConfig
-from ..dynamic_formulation import torsional_2DOF
+from ..dynamics import torsional_2DOF
 from ..iso6336 import ISO_6336
 
 

@@ -4,6 +4,7 @@ def test_package_imports():
     assert drivetrain.Material().E > 0.0
     assert drivetrain.GearSet is not None
     assert drivetrain.torsional_2DOF is not None
+    assert drivetrain.dynamics.torsional_2DOF is drivetrain.torsional_2DOF
     assert drivetrain.NREL_5MW is not None
     assert drivetrain.models.Drivetrain is drivetrain.Drivetrain
     assert drivetrain.models.NREL_5MW is drivetrain.NREL_5MW

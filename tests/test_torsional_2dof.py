@@ -1,6 +1,6 @@
 import numpy as np
 
-from drivetrain.dynamic_formulation import torsional_2DOF
+from drivetrain.dynamics import torsional_2DOF
 
 
 class _DummyShaft:

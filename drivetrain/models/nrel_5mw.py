@@ -7,7 +7,7 @@ from ..components.bearings import Bearing
 from ..components.configs import DrivetrainConfig
 from ..components.shafts import Shaft
 from ..gears import GearSet
-from ..dynamic_formulation import torsional_2DOF
+from ..dynamics import torsional_2DOF
 from .drivetrain import Drivetrain
 
 

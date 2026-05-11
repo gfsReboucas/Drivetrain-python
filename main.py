@@ -6,7 +6,7 @@ Created on Mon Apr  6 15:03:51 2020
 """
 
 from drivetrain import NREL_5MW
-from drivetrain.dynamic_formulation import Kahraman_94, torsional_2DOF
+from drivetrain.dynamics import Kahraman_94, torsional_2DOF
 import matplotlib.pyplot as plt
 
 if(__name__ == '__main__'):
