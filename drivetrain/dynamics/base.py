@@ -148,30 +148,11 @@ class model:
         else:
             raise ValueError("option must be 'average' or 'linear'")
 
-        time = np.asarray(time, dtype=float)
-        if time.ndim != 1 or time.size < 2:
-            raise ValueError("time must be a one-dimensional array with at least two points")
+        time, x0, v0, mass, damping, stiffness, load = model._prepare_time_integration_inputs(
+            time, x0, v0, M, D, K, load
+        )
 
         dt = time[1] - time[0]
-        if not np.allclose(np.diff(time), dt):
-            raise ValueError("time spacing must be constant")
-
-        mass = model._square_matrix(M, "M")
-        damping = model._square_matrix(D, "D")
-        stiffness = model._square_matrix(K, "K")
-        model._require_same_shape(mass, damping, stiffness)
-
-        x0 = np.atleast_1d(np.asarray(x0, dtype=float))
-        v0 = np.atleast_1d(np.asarray(v0, dtype=float))
-        if x0.shape != (mass.shape[0],) or v0.shape != (mass.shape[0],):
-            raise ValueError("x0 and v0 must have one value per dynamic DOF")
-
-        load = np.asarray(load, dtype=float)
-        if load.ndim == 1:
-            load = load[np.newaxis, :]
-        if load.shape != (mass.shape[0], time.size):
-            raise ValueError("load must have shape (n_dof, n_time)")
-
         n = mass.shape[0]
         nt = time.size
         position = np.zeros((n, nt))
@@ -225,8 +206,107 @@ class model:
             "a": acceleration,
         }
 
+    @staticmethod
+    def wilson(time, x0, v0, M, D, K, load, theta=1.42):
+        """Solve a linear second-order system with the Wilson-theta method."""
+        time, x0, v0, mass, damping, stiffness, load = model._prepare_time_integration_inputs(
+            time, x0, v0, M, D, K, load
+        )
+
+        dt = time[1] - time[0]
+        n = mass.shape[0]
+        nt = time.size
+
+        position = np.zeros((n, nt))
+        velocity = np.zeros_like(position)
+        acceleration = np.zeros_like(position)
+
+        load_increment = np.diff(load, axis=1)
+
+        r1 = 6.0/(theta*dt)**2
+        r2 = 3.0/(theta*dt)
+        r3 = 6.0/(theta*dt)
+        r4 = theta*dt/2.0
+        r5 = dt/2.0
+        r6 = dt**2/2.0
+        r7 = dt**2/6.0
+
+        effective_stiffness = r1*mass + r2*damping + stiffness
+        a_matrix = r3*mass + 3.0*damping
+        b_matrix = 3.0*mass + r4*damping
+
+        position[:, 0] = x0
+        velocity[:, 0] = v0
+        acceleration[:, 0] = la.solve(
+            mass,
+            load[:, 0] - damping @ velocity[:, 0] - stiffness @ position[:, 0],
+        )
+
+        for i in range(nt - 1):
+            effective_load_increment = (
+                theta*load_increment[:, i]
+                + a_matrix @ velocity[:, i]
+                + b_matrix @ acceleration[:, i]
+            )
+
+            position_increment_theta = la.solve(effective_stiffness, effective_load_increment)
+            acceleration_increment_theta = (
+                r1*position_increment_theta
+                - r3*velocity[:, i]
+                - 3.0*acceleration[:, i]
+            )
+
+            acceleration_increment = acceleration_increment_theta/theta
+            velocity_increment = dt*acceleration[:, i] + r5*acceleration_increment
+            position_increment = (
+                dt*velocity[:, i]
+                + r6*acceleration[:, i]
+                + r7*acceleration_increment
+            )
+
+            position[:, i + 1] = position[:, i] + position_increment
+            velocity[:, i + 1] = velocity[:, i] + velocity_increment
+            acceleration[:, i + 1] = acceleration[:, i] + acceleration_increment
+
+        return {
+            "solver": "Wilson",
+            "theta": theta,
+            "t": time,
+            "x": position,
+            "v": velocity,
+            "a": acceleration,
+        }
+
     def _matrix_size(self):
         return self._square_matrix(self.M, "M").shape[0]
+
+    @staticmethod
+    def _prepare_time_integration_inputs(time, x0, v0, M, D, K, load):
+        time = np.asarray(time, dtype=float)
+        if time.ndim != 1 or time.size < 2:
+            raise ValueError("time must be a one-dimensional array with at least two points")
+
+        dt = time[1] - time[0]
+        if not np.allclose(np.diff(time), dt):
+            raise ValueError("time spacing must be constant")
+
+        mass = model._square_matrix(M, "M")
+        damping = model._square_matrix(D, "D")
+        stiffness = model._square_matrix(K, "K")
+        model._require_same_shape(mass, damping, stiffness)
+
+        x0 = np.atleast_1d(np.asarray(x0, dtype=float))
+        v0 = np.atleast_1d(np.asarray(v0, dtype=float))
+        if x0.shape != (mass.shape[0],) or v0.shape != (mass.shape[0],):
+            raise ValueError("x0 and v0 must have one value per dynamic DOF")
+
+        load = np.asarray(load, dtype=float)
+        if load.ndim == 1:
+            load = load[np.newaxis, :]
+        if load.shape != (mass.shape[0], time.size):
+            raise ValueError("load must have shape (n_dof, n_time)")
+
+        return time, x0, v0, mass, damping, stiffness, load
 
     @staticmethod
     def _square_matrix(matrix, name):

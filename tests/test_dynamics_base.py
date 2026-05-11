@@ -119,3 +119,70 @@ def test_newmark_linear_single_dof_starts_from_consistent_acceleration():
     assert solution["x"].shape == (1, time.size)
     assert solution["v"].shape == (1, time.size)
     assert solution["a"].shape == (1, time.size)
+
+
+def test_wilson_free_mass_constant_force_matches_exact_response():
+    time = np.linspace(0.0, 1.0, 11)
+    load = np.ones(time.size)
+
+    solution = DynamicModel.wilson(
+        time,
+        x0=np.array([0.0]),
+        v0=np.array([0.0]),
+        M=np.array([[2.0]]),
+        D=np.array([[0.0]]),
+        K=np.array([[0.0]]),
+        load=load,
+    )
+
+    expected_acceleration = np.full((1, time.size), 0.5)
+    expected_velocity = time[np.newaxis, :]*0.5
+    expected_position = 0.25*time[np.newaxis, :]**2
+
+    assert solution["solver"] == "Wilson"
+    assert solution["theta"] == 1.42
+    np.testing.assert_allclose(solution["a"], expected_acceleration, atol=1e-14)
+    np.testing.assert_allclose(solution["v"], expected_velocity, atol=1e-14)
+    np.testing.assert_allclose(solution["x"], expected_position, atol=1e-14)
+
+
+def test_wilson_accepts_matlab_five_dof_reference_problem_shape():
+    n = 5
+    mass_per_floor = 208.6
+    bending_stiffness = 5.469e10
+    height = 120.0
+    load_value = 1.0e3
+    time = np.arange(0.0, 2.0 + 0.1, 0.1)
+
+    mass = mass_per_floor*np.diag([1.0, 1.0, 1.0, 1.0, 0.5])
+    stiffness_diagonal = np.diag([18.83, 14.65, 14.06, 9.878, 1.608])
+    stiffness_upper = np.zeros((n, n))
+    stiffness_upper[0, 1] = -11.90
+    stiffness_upper[0, 2] = 4.773
+    stiffness_upper[0, 3] = -1.193
+    stiffness_upper[0, 4] = 0.1989
+    stiffness_upper[1, 2] = -10.71
+    stiffness_upper[1, 3] = 4.177
+    stiffness_upper[1, 4] = -0.6961
+    stiffness_upper[2, 3] = -9.514
+    stiffness_upper[2, 4] = 2.586
+    stiffness_upper[3, 4] = -3.646
+    stiffness = (stiffness_upper + stiffness_upper.T + stiffness_diagonal)*bending_stiffness/(height**3)
+
+    load = np.zeros((n, time.size))
+    load[-1, 1:] = load_value
+
+    solution = DynamicModel.wilson(
+        time,
+        x0=np.zeros(n),
+        v0=np.zeros(n),
+        M=mass,
+        D=np.zeros((n, n)),
+        K=stiffness,
+        load=load,
+    )
+
+    assert solution["x"].shape == (n, time.size)
+    assert solution["v"].shape == (n, time.size)
+    assert solution["a"].shape == (n, time.size)
+    assert np.all(np.isfinite(solution["x"]))
