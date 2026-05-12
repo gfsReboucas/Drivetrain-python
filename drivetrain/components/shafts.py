@@ -140,6 +140,15 @@ class Shaft:
             
             M = la.block_diag(M_a, M_t, M_b, M_b)
             
+            # Element matrices are first assembled in component order:
+            #   u = [x1, x2, a1, a2, y1, g1, y2, g2, z1, b1, z2, b2]
+            # where x is axial displacement, a is rotation about x, b is
+            # rotation about y, and g is rotation about z. The full beam
+            # coordinates used by the drivetrain are:
+            #   v = [x1, y1, z1, a1, b1, g1, x2, y2, z2, a2, b2, g2]
+            # with u = R v and transformed matrices R.T @ M @ R.
+            # Negative entries below encode the bending rotation sign
+            # convention used by the local beam element.
             R = np.zeros((12, 12))
             R[ 1 - 1,  1 - 1] =  1
             R[ 2 - 1,  7 - 1] =  1
@@ -158,6 +167,11 @@ class Shaft:
         elif(option == 'Lin_Parker_99'):
             M = self.inertia_matrix('full')
             
+            # Lin/Parker shaft coordinates keep the lateral translations and
+            # torsional rotations at both nodes:
+            #   v_lp = [y1, z1, a1, y2, z2, a2]
+            # selected from full beam coordinates
+            #   v = [x1, y1, z1, a1, b1, g1, x2, y2, z2, a2, b2, g2].
             R = np.zeros((12, 6))
             R[2  - 1, 1 - 1] = 1
             R[3  - 1, 2 - 1] = 1
@@ -207,6 +221,12 @@ class Shaft:
             
             K = la.block_diag(K_a, K_t, K_b, K_b)
             
+            # Same coordinate transformation as the full inertia matrix:
+            #   u = [x1, x2, a1, a2, y1, g1, y2, g2, z1, b1, z2, b2]
+            #   v = [x1, y1, z1, a1, b1, g1, x2, y2, z2, a2, b2, g2]
+            # with u = R v and transformed matrices R.T @ K @ R.
+            # Negative entries below encode the bending rotation sign
+            # convention used by the local beam element.
             R = np.zeros((12, 12))
             R[ 1 - 1,  1 - 1] =  1
             R[ 2 - 1,  7 - 1] =  1
@@ -225,6 +245,8 @@ class Shaft:
         elif(option == 'Lin_Parker_99'):
             K = self.stiffness_matrix('full')
             
+            # Lin/Parker reduced shaft coordinates:
+            #   v_lp = [y1, z1, a1, y2, z2, a2].
             R = np.zeros((12, 6))
             R[ 2 - 1, 1 - 1] = 1
             R[ 3 - 1, 2 - 1] = 1
