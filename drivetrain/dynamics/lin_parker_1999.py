@@ -21,13 +21,16 @@ from .base import model
 
 
 class Lin_Parker_99(model):
-    def __init__(self, dtrain):
+    def __init__(self, dtrain, include_shafts=True):
         super().__init__(dtrain)
+        self.include_shafts = include_shafts
         
         # number of DOFs for each stage:
         self.n_DOF = self.__calc_NDOF()
         
-        self.M = self.__inertia_matrix()
+        inertia = self.__inertia_matrix()
+        self.M = inertia['M']
+        self.G = inertia['G']
 
         stiff = self.__stiffness_matrix()
 
@@ -63,48 +66,84 @@ class Lin_Parker_99(model):
         N = self.n_DOF
         
         M = np.zeros((N[-1], N[-1]))
+        G = np.zeros_like(M)
         M[:3,  :3 ] = np.diag([m_R, m_R, J_R]) # Rotor inertia matrix
         M[-3:, -3:] = np.diag([m_G, m_G, J_G]) # Generator inertia matrix
 
         i = 0
         sub_range = slice(N[i], N[i + 1])
-        M[sub_range, 
-          sub_range] += DT.main_shaft.inertia_matrix('Lin_Parker_99')*0
+        if self.include_shafts:
+            M[sub_range, sub_range] += DT.main_shaft.inertia_matrix('Lin_Parker_99')
         
         for i in range(DT.N_st):
             sub_range = slice(N[i + 1] - 3, N[i + 2])
-            M[sub_range, 
-              sub_range] += Lin_Parker_99.stage_inertia_matrix(DT.stage[i])
+            M[sub_range, sub_range] += Lin_Parker_99.stage_inertia_matrix(
+                DT.stage[i],
+                include_output_shaft=self.include_shafts,
+            )
+            G[sub_range, sub_range] += Lin_Parker_99.stage_gyroscopic_matrix(DT.stage[i])
     
-        return M
+        return {'M': M, 'G': G}
     
     @staticmethod
-    def stage_inertia_matrix(stage):
+    def stage_inertia_matrix(stage, include_output_shaft=False):
 
-        M_ = lambda m, J: np.diag([m, m, J])
+        M_ = lambda m, J, r: np.diag([m, m, J/(r**2)])
 
         if(stage.configuration == 'parallel'):
+            r_p = stage.d_b[0]*1.0e-3/2
+            r_w = stage.d_b[1]*1.0e-3/2
 
-            d = [M_(stage.mass[1], stage.J_x[1]), # wheel
-                 M_(stage.mass[0], stage.J_x[0]), # pinion
-                 M_(           0 ,           0 )] # output shaft
+            d = [M_(stage.mass[0], stage.J_x[0], r_p), # pinion
+                 M_(stage.mass[1], stage.J_x[1], r_w)] # wheel
 
         elif(stage.configuration == 'planetary'):
+            r_c = stage.a_w*1.0e-3
+            r_r = stage.d_b[2]*1.0e-3/2
+            r_s = stage.d_b[0]*1.0e-3/2
+            r_p = stage.d_b[1]*1.0e-3/2
+
             m_p = stage.mass[1]
             J_p = stage.J_x[1]
             
-            d = [M_(stage.carrier.mass, stage.carrier.J_x)]    # carrier
-            [d.append(M_(m_p, J_p)) for i in range(stage.N_p)] # planet
-            d.append( M_(stage.mass[0], stage.J_x[0]))         # sun
-            d.append( M_(  0,   0))                            # output shaft
+            d = [M_(stage.carrier.mass, stage.carrier.J_x, r_c), # carrier
+                 M_(stage.mass[2],      stage.J_x[2],      r_r), # ring
+                 M_(stage.mass[0],      stage.J_x[0],      r_s)] # sun
+            [d.append(M_(m_p, J_p, r_p)) for i in range(stage.N_p)] # planet
 
         M = la.block_diag(*d)
+        R = Lin_Parker_99.stage_coordinate_change(stage)
+        M = R.T @ M @ R
+        M = la.block_diag(M, np.zeros((3, 3)))
         
-        M[-6:, -6:] += stage.output_shaft.inertia_matrix('Lin_Parker_99')*0
+        if include_output_shaft:
+            M[-6:, -6:] += stage.output_shaft.inertia_matrix('Lin_Parker_99')
         
         return M
 
     __stage_inertia_matrix = stage_inertia_matrix
+
+    @staticmethod
+    def stage_gyroscopic_matrix(stage):
+        G_ = lambda m: np.array([[0.0, -2.0*m, 0.0],
+                              [2.0*m,  0.0  , 0.0],
+                              [0.0  ,  0.0  , 0.0]])
+
+        if(stage.configuration == 'parallel'):
+            d = [G_(stage.mass[0]), # pinion
+                 G_(stage.mass[1])] # wheel
+
+        elif(stage.configuration == 'planetary'):
+            d = [G_(stage.carrier.mass), # carrier
+                 G_(stage.mass[2]),      # ring
+                 G_(stage.mass[0])]      # sun
+            [d.append(G_(stage.mass[1])) for i in range(stage.N_p)] # planet
+
+        G = la.block_diag(*d)
+        R = Lin_Parker_99.stage_coordinate_change(stage)
+        G = R.T @ G @ R
+
+        return la.block_diag(G, np.zeros((3, 3)))
         
     def __stiffness_matrix(self):
         DT = self.drivetrain
@@ -117,11 +156,14 @@ class Lin_Parker_99(model):
 
         i = 0
         sub_range = slice(N[i], N[i + 1])
-        K_b[sub_range, 
-            sub_range] += DT.main_shaft.stiffness_matrix('Lin_Parker_99')*0
+        if self.include_shafts:
+            K_b[sub_range, sub_range] += DT.main_shaft.stiffness_matrix('Lin_Parker_99')
         
         for i in range(DT.N_st):
-            stiff = Lin_Parker_99.stage_stiffness_matrix(DT.stage[i])
+            stiff = Lin_Parker_99.stage_stiffness_matrix(
+                DT.stage[i],
+                include_output_shaft=self.include_shafts,
+            )
 
             sub_range = slice(N[i + 1] - 3, N[i + 2])
             K_b[    sub_range, sub_range] += stiff['K_b']
@@ -133,16 +175,24 @@ class Lin_Parker_99(model):
                 'K_Omega': K_Omega}
 
     @staticmethod
-    def stage_stiffness_matrix(stage):
+    def stage_stiffness_matrix(stage, include_output_shaft=False):
 
         # Bearing stiffness sub-matrix:
-        K_b_ = lambda x, y: np.diag([x, y, 0])
+        K_b_ = lambda x, y, u=0: np.diag([x, y, u])
         
         alpha_n = np.radians(stage.alpha_n)
 
         psi   = lambda i: (i - 1)*(2*np.pi/stage.N_p)
         psi_s = lambda i: psi(i) - alpha_n
-        # psi_r = lambda i: psi(i) + alpha_n
+        psi_r = lambda i: psi(i) + alpha_n
+        # ring-ring mesh-stiffness matrix:
+        K_r1 = lambda k, i: k*np.array([[ np.sin(psi_r(i))**2, -np.sin(psi_r(i))*np.cos(psi_r(i)), -np.sin(psi_r(i))],
+                                     [-np.sin(psi_r(i))*np.cos(psi_r(i)),  np.cos(psi_r(i))**2,  np.cos(psi_r(i))],
+                                     [-np.sin(psi_r(i)),  np.cos(psi_r(i)), 1]])
+        # ring-planet mesh-stiffness matrix:
+        K_r2 = lambda k, i: k*np.array([[-np.sin(psi_r(i))*np.sin(alpha_n),  np.sin(psi_r(i))*np.cos(alpha_n),  np.sin(psi_r(i))],
+                                     [ np.cos(psi_r(i))*np.sin(alpha_n), -np.cos(psi_r(i))*np.cos(alpha_n), -np.cos(psi_r(i))],
+                                     [ np.sin(alpha_n), -np.cos(alpha_n), -1]])
         # sun-sun mesh-stiffness matrix:
         K_s1 = lambda k, i: k*np.array([[               np.sin(psi_s(i))**2, -np.cos(psi_s(i))*np.sin(psi_s(i)), -np.sin(psi_s(i))],
                                      [-np.cos(psi_s(i))*np.sin(psi_s(i))   ,  np.cos(psi_s(i))**2           ,  np.cos(psi_s(i))],
@@ -170,63 +220,55 @@ class Lin_Parker_99(model):
         # [?]
         K_c3 = lambda x, y: K_b_(x, y)
         
-        # From torsional to translational coordinates:
-        R_ = lambda r: np.diag([1, 1, r])
-
         Z3 = np.zeros((3, 3))
-        I3 = np.eye(3)
         if(stage.configuration == 'parallel'):
+            r_p = stage.d_b[0]*1.0e-3/2
+            r_w = stage.d_b[1]*1.0e-3/2
+
             # Bearing component:
             b_p  = stage.bearing[3:]
             b_p  = b_p.parallel_association()
             k_px = b_p.k_y
             k_py = b_p.k_z
+            k_pu = b_p.k_alpha/(r_p**2)
 
-            K_b = la.block_diag(Z3,               # wheel
-                             K_b_(k_px, k_py), # pinion
-                             Z3)               # shaft
+            K_b = la.block_diag(Z3,                # pinion
+                             K_b_(k_px, k_py, k_pu)) # wheel
 
             # Mesh component:
             b_w  = stage.bearing[:3]
             b_w  = b_w.parallel_association()
             k_wx = b_w.k_y
             k_wy = b_w.k_z
+            k_wu = b_w.k_alpha/(r_w**2)
 
             k = stage.k_mesh
             mesh_coupling = K_s2(k, 1)
-            K_m = np.block([[K_s3(k) + K_c3(k_wx, k_wy), mesh_coupling.T],
-                         [mesh_coupling              , K_s1(k, 1)]])
-
-            K_m = la.block_diag(K_m, Z3)
+            K_m = np.block([[K_s3(k) + K_b_(k_wx, k_wy, k_wu), mesh_coupling.T],
+                         [mesh_coupling                , K_s1(k, 1)]])
             
             # Centripetal component:
-            K_Omega = la.block_diag(K_b_(stage.mass[1], stage.mass[1]), # wheel
-                                 K_b_(stage.mass[0], stage.mass[0]), # pinion
-                                 Z3)                                 # shaft
-
-            # Torsional to translational:
-            r_p = stage.d[1]*1.0e-3/2
-            r_w = stage.d[1]*1.0e-3/2
-
-            R = la.block_diag(R_(r_w), R_(r_p), I3)
+            K_Omega = la.block_diag(K_b_(stage.mass[0], stage.mass[0]), # pinion
+                                 K_b_(stage.mass[1], stage.mass[1])) # wheel
 
         elif(stage.configuration == 'planetary'):
+            n_planet_dof = 3*stage.N_p
+            r_c = stage.a_w*1.0e-3
+            r_s = stage.d_b[0]*1.0e-3/2
+            r_p = stage.d_b[1]*1.0e-3/2
+
             # Bearing component:
-            b_c = stage.bearing[2:]
+            b_c = stage.bearing[2:4]
             b_c = b_c.parallel_association()
 
             k_cx = b_c.k_y
             k_cy = b_c.k_z
+            k_cu = b_c.k_alpha/(r_c**2)
 
-            K_cb = K_b_(k_cx, k_cy)
-
-            K_sb = Z3
-
-            n_planet_dof = 3*stage.N_p
-            K_b = la.block_diag(K_cb,            # carrier
-                             np.zeros((n_planet_dof, n_planet_dof)), # planet
-                             K_sb,            # sun
-                             Z3)              # shaft
+            K_b = la.block_diag(K_b_(k_cx, k_cy, k_cu), # carrier
+                             Z3,                     # ring
+                             Z3,                     # sun
+                             np.zeros((n_planet_dof, n_planet_dof))) # planet
 
             # Mesh component:
             k_sp = stage.sub_set('sun-planet').k_mesh
@@ -237,60 +279,50 @@ class Lin_Parker_99(model):
 
             k_px = b_p.k_y
             k_py = b_p.k_z
+            k_pu = b_p.k_alpha/(r_p**2)
 
-            K_c = [K_c2(1, i + 1)*K_b_(k_px, k_py) for i in range(stage.N_p)]
-            K_c = np.hstack(K_c)
-            K_s = [K_s2(k_sp, i + 1)               for i in range(stage.N_p)]
-            K_s = np.vstack(K_s)
-
-            K_m = np.zeros_like(K_b)
+            planet_bearing = K_b_(k_px, k_py, k_pu)
+            K_c_row = np.zeros((3, n_planet_dof))
+            K_r_row = np.zeros_like(K_c_row)
+            K_s_row = np.zeros_like(K_c_row)
             
-            K_pp = K_c3(k_cx, k_cy) + K_r3(k_pr) + K_s3(k_sp)
-
-            sum_Kc = 0
-            sum_Ks = 0
             for i in range(stage.N_p):
-                sum_Kc += K_c1( 1  , i + 1)
-                sum_Ks += K_s1(k_sp, i + 1)
+                dofs = slice(3*i, 3*(i + 1))
+                K_c_row[:, dofs] = planet_bearing @ K_c2(1, i + 1)
+                K_r_row[:, dofs] = K_r2(k_pr, i + 1)
+                K_s_row[:, dofs] = K_s2(k_sp, i + 1)
 
-            sum_Kc = sum_Kc @ K_b_(k_px, k_py)
+            sum_Kc = sum(planet_bearing @ K_c1(1, i + 1) for i in range(stage.N_p))
+            sum_Kr = sum(K_r1(k_pr, i + 1) for i in range(stage.N_p))
+            sum_Ks = sum(K_s1(k_sp, i + 1) for i in range(stage.N_p))
 
-            d = [sum_Kc]
-            [d.append(K_pp) for i in range(stage.N_p)]
-            d.append(sum_Ks)
-            d.append(Z3)
+            diag_01 = la.block_diag(sum_Kc, sum_Kr, sum_Ks)
+            diag_up = np.vstack((K_c_row, K_r_row, K_s_row))
 
-            K_m[ :3     ,  3:n_planet_dof + 3] = K_c
-            K_m[3:n_planet_dof + 3, -3:      ] = K_s
-            K_m += K_m.T
-            K_m += la.block_diag(*d)
+            K_pp = planet_bearing + K_r3(k_pr) + K_s3(k_sp)
+            diag_02 = la.block_diag(*[K_pp for i in range(stage.N_p)])
+            K_m = np.block([[diag_01,  diag_up],
+                         [diag_up.T, diag_02]])
 
             # Centripetal component:
             d = [     K_b_(stage.carrier.mass, stage.carrier.mass)]                       # carrier
-            [d.append(K_b_(stage.mass[1],      stage.mass[1])) for i in range(stage.N_p)] # planet
+            d.append( K_b_(stage.mass[2],      stage.mass[2]))                            # ring
             d.append( K_b_(stage.mass[0],      stage.mass[0]))                            # sun
-            d.append(Z3)                                                                  # shaft
+            [d.append(K_b_(stage.mass[1],      stage.mass[1])) for i in range(stage.N_p)] # planet
 
             K_Omega = la.block_diag(*d)
 
-            # Torsional to translational:
-            r_s = stage.d[0]*1.0e-3/2
-            r_p = stage.d[1]*1.0e-3/2
-            r_c = stage.a_w *1.0e-3
-            
-            d = [R_(r_c)]
-            [d.append(R_(r_p)) for i in range(stage.N_p)]
-            d.append(R_(r_s))
-            d.append(I3)
-
-            R = la.block_diag(*d)
-
-        # Torsional to translational:
+        R = Lin_Parker_99.stage_coordinate_change(stage)
         K_b     = R.T @ K_b     @ R
         K_m     = R.T @ K_m     @ R
         K_Omega = R.T @ K_Omega @ R
 
-        K_b[-6:, -6:] += stage.output_shaft.stiffness_matrix('Lin_Parker_99')*0
+        K_b = la.block_diag(K_b, Z3)
+        K_m = la.block_diag(K_m, Z3)
+        K_Omega = la.block_diag(K_Omega, Z3)
+
+        if include_output_shaft:
+            K_b[-6:, -6:] += stage.output_shaft.stiffness_matrix('Lin_Parker_99')
 
         # removing spurious elements:
         K_b[    abs(K_b)     <= 1.0e-4] = 0.0
@@ -302,6 +334,43 @@ class Lin_Parker_99(model):
                 'K_Omega': K_Omega}
 
     __stage_stiffness_matrix = stage_stiffness_matrix
+
+    @staticmethod
+    def stage_coordinate_change(stage):
+        """Map assembled rotational stage DOFs to raw mesh coordinates."""
+        R_ = lambda r: np.diag([1, 1, r])
+
+        Z3 = np.zeros((3, 3))
+        I3 = np.eye(3)
+
+        if(stage.configuration == 'parallel'):
+            r_p = stage.d_b[0]*1.0e-3/2
+            r_w = stage.d_b[1]*1.0e-3/2
+
+            return np.block([[Z3     , R_(r_p)],
+                             [R_(r_w), Z3     ]])
+
+        if(stage.configuration == 'planetary'):
+            n_planet_dof = 3*stage.N_p
+            raw_size = 9 + n_planet_dof
+            assembled_size = 6 + n_planet_dof
+
+            r_c = stage.a_w*1.0e-3
+            r_s = stage.d_b[0]*1.0e-3/2
+            r_p = stage.d_b[1]*1.0e-3/2
+
+            R = np.zeros((raw_size, assembled_size))
+            R[0:3, 0:3] = R_(r_c) # carrier
+            R[6:9, -3:] = R_(r_s) # sun
+
+            for i in range(stage.N_p):
+                raw = slice(9 + 3*i, 9 + 3*(i + 1))
+                assembled = slice(3 + 3*i, 3 + 3*(i + 1))
+                R[raw, assembled] = R_(r_p)
+
+            return R
+
+        raise ValueError("Unsupported stage configuration: {}".format(stage.configuration))
 
     @staticmethod
     def testing():
