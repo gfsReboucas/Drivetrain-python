@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 
 from drivetrain.dynamics import Lin_Parker_99
 from drivetrain.models import NREL_5MW
@@ -66,7 +67,8 @@ def test_lin_parker_99_full_model_shaft_inclusion_is_explicit():
     drivetrain = NREL_5MW()
 
     with_shafts = Lin_Parker_99(drivetrain)
-    without_shafts = Lin_Parker_99(drivetrain, include_shafts=False)
+    with pytest.warns(RuntimeWarning, match="invalid value encountered in sqrt"):
+        without_shafts = Lin_Parker_99(drivetrain, include_shafts=False)
 
     assert np.count_nonzero(without_shafts.M) < np.count_nonzero(with_shafts.M)
     assert np.count_nonzero(without_shafts.K_b) < np.count_nonzero(with_shafts.K_b)
@@ -91,3 +93,12 @@ def test_lin_parker_99_stage_stiffness_matrices_are_symmetric():
         np.testing.assert_allclose(stiffness["K_b"], stiffness["K_b"].T)
         np.testing.assert_allclose(stiffness["K_m"], stiffness["K_m"].T)
         np.testing.assert_allclose(stiffness["K_Omega"], stiffness["K_Omega"].T)
+
+
+def test_lin_parker_99_stage_total_stiffness_has_no_significant_negative_eigenvalues():
+    for stage_index in range(3):
+        stiffness = Lin_Parker_99.stage_stiffness_matrix(NREL_5MW.gear_set(stage_index))
+        stage_total = stiffness["K_b"] + stiffness["K_m"] + stiffness["K_Omega"]
+        eigenvalues = np.linalg.eigvalsh((stage_total + stage_total.T)/2)
+
+        assert eigenvalues[0] >= -1.0e-5

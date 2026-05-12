@@ -209,10 +209,6 @@ class Lin_Parker_99(model):
         K_r3 = lambda k   : k*np.array([[ np.sin(alpha_n)**2          , -np.sin(alpha_n)*np.cos(alpha_n), -np.sin(alpha_n)],
                                      [-np.sin(alpha_n)*np.cos(alpha_n),  np.cos(alpha_n)**2          ,  np.cos(alpha_n)],
                                      [-np.sin(alpha_n)             ,  np.cos(alpha_n)             ,        1     ]])
-        # carrier-carrier bearing stiffness matrix:
-        K_c1 = lambda k, i: k*np.array([[ 1          , 0          , -np.sin(psi(i))],
-                                     [ 0          , 1          ,  np.cos(psi(i))],
-                                     [-np.sin(psi(i)), np.cos(psi(i)),        1    ]])
         # carrier-planet bearing stiffness matrix:
         K_c2 = lambda k, i: k*np.array([[-np.cos(psi(i)),  np.sin(psi(i)), 0],
                                      [-np.sin(psi(i)), -np.cos(psi(i)), 0],
@@ -286,13 +282,18 @@ class Lin_Parker_99(model):
             K_r_row = np.zeros_like(K_c_row)
             K_s_row = np.zeros_like(K_c_row)
             
+            sum_Kc = np.zeros((3, 3))
             for i in range(stage.N_p):
                 dofs = slice(3*i, 3*(i + 1))
-                K_c_row[:, dofs] = planet_bearing @ K_c2(1, i + 1)
+                carrier_planet_coupling = K_c2(1, i + 1)
+                # Use C @ D @ C.T so anisotropic planet bearing stiffness
+                # remains positive semidefinite. This reduces to the MATLAB
+                # shortcut for isotropic bearing stiffness.
+                K_c_row[:, dofs] = carrier_planet_coupling @ planet_bearing
                 K_r_row[:, dofs] = K_r2(k_pr, i + 1)
                 K_s_row[:, dofs] = K_s2(k_sp, i + 1)
+                sum_Kc += carrier_planet_coupling @ planet_bearing @ carrier_planet_coupling.T
 
-            sum_Kc = sum(planet_bearing @ K_c1(1, i + 1) for i in range(stage.N_p))
             sum_Kr = sum(K_r1(k_pr, i + 1) for i in range(stage.N_p))
             sum_Ks = sum(K_s1(k_sp, i + 1) for i in range(stage.N_p))
 
