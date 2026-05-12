@@ -1,9 +1,223 @@
+from types import SimpleNamespace
+
 import numpy as np
 import pytest
 import scipy.linalg as la
 
+from drivetrain.components import Bearing
 from drivetrain.dynamics import Lin_Parker_99
 from drivetrain.models import NREL_5MW
+
+
+def _bearing_array(entries):
+    stiffness = np.array(
+        [[0.0, entry["k_y"], entry["k_z"], entry["k_alpha"], 0.0, 0.0] for entry in entries]
+    ).T
+    damping = np.zeros_like(stiffness)
+    return Bearing(
+        stiffness=stiffness,
+        damping=damping,
+        name=[entry["name"] for entry in entries],
+    )
+
+
+def _reference_stage_frequencies(stage):
+    inertia = Lin_Parker_99.raw_stage_inertia_matrix(stage)
+    stiffness_parts = Lin_Parker_99.raw_stage_stiffness_matrix(stage)
+    stiffness = stiffness_parts["K_b"] + stiffness_parts["K_m"]
+    eigenvalues = la.eigvals(stiffness, inertia)
+    eigenvalues = np.real_if_close(eigenvalues)
+    eigenvalues = np.real(eigenvalues[np.isreal(eigenvalues)])
+    eigenvalues = eigenvalues[np.isfinite(eigenvalues)]
+    eigenvalues[eigenvalues < 0.0] = 0.0
+    frequencies = np.sqrt(eigenvalues)/(2.0*np.pi)
+    frequencies[frequencies < 1.0e-4] = 0.0
+    return np.sort(frequencies)
+
+
+def _lin_parker_1999_validation_stage(num_planet):
+    # Lin and Parker 1999 Table 1 / Lin thesis Table C.1.
+    m_s = 0.4
+    m_r = 2.35
+    m_c = 5.43
+    m_p = 0.66
+    d_s = 77.4
+    d_r = 275.0
+    d_c = 176.8
+    d_p = 100.3
+
+    r_s = d_s*1.0e-3/2
+    r_r = d_r*1.0e-3/2
+    r_c = d_c*1.0e-3/2
+    r_p = d_p*1.0e-3/2
+
+    k_sp = 5.0e8
+    k_s = 1.0e8
+    k_r = k_s
+    k_c = k_s
+    k_p = k_s
+    k_su = 0.0
+    k_ru = 1.0e9
+    k_cu = k_su
+    k_pu = k_p
+
+    mesh = SimpleNamespace(k_mesh=k_sp)
+    return SimpleNamespace(
+        configuration="planetary",
+        N_p=num_planet,
+        alpha_n=24.6,
+        mass=np.array([m_s, m_p, m_r]),
+        d_b=np.array([d_s, d_p, d_r]),
+        a_w=d_c/2,
+        J_x=np.array([0.39*r_s**2, 0.61*r_p**2, 3.0*r_r**2]),
+        carrier=SimpleNamespace(mass=m_c, J_x=6.29*r_c**2),
+        bearing=_bearing_array(
+            [
+                {"k_y": 0.5*k_p, "k_z": 0.5*k_p, "k_alpha": 0.5*k_pu*r_p**2, "name": "planet-a"},
+                {"k_y": 0.5*k_p, "k_z": 0.5*k_p, "k_alpha": 0.5*k_pu*r_p**2, "name": "planet-b"},
+                {"k_y": 0.5*k_c, "k_z": 0.5*k_c, "k_alpha": 0.5*k_cu*r_c**2, "name": "carrier-a"},
+                {"k_y": 0.5*k_c, "k_z": 0.5*k_c, "k_alpha": 0.5*k_cu*r_c**2, "name": "carrier-b"},
+                {"k_y": k_s, "k_z": k_s, "k_alpha": k_su*r_s**2, "name": "sun"},
+                {"k_y": k_r, "k_z": k_r, "k_alpha": k_ru*r_r**2, "name": "ring"},
+            ]
+        ),
+        sub_set=lambda name: mesh,
+    )
+
+
+def _lin_parker_1999_reference_frequencies(num_planet):
+    if num_planet == 3:
+        frequencies = [
+            0.0,
+            1475.7,
+            1930.3,
+            2658.3,
+            7462.8,
+            11775.3,
+            *([743.2, 1102.4, 1896.0, 2276.4, 6986.3, 9647.9]*2),
+        ]
+    elif num_planet == 4:
+        frequencies = [
+            0.0,
+            1536.6,
+            1970.6,
+            2625.7,
+            7773.6,
+            13071.1,
+            *([727.0, 1091.0, 1892.8, 2342.5, 7189.9, 10437.6]*2),
+            1808.2,
+            5963.8,
+            6981.7,
+        ]
+    elif num_planet == 5:
+        frequencies = [
+            0.0,
+            1567.4,
+            2006.1,
+            2614.8,
+            8065.4,
+            14253.1,
+            *([710.0, 1072.0, 1888.1, 2425.3, 7382.4, 11172.3]*2),
+            *([1808.2, 5963.8, 6981.7]*2),
+        ]
+    else:
+        raise ValueError("num_planet must be 3, 4, or 5")
+
+    return np.sort(frequencies)
+
+
+def _cooley_parker_2012_validation_stage(num_planet):
+    # Cooley and Parker 2012 Table 1, evaluated at Omega_c = 0.
+    m_s = 3.0
+    m_r = 7.64
+    m_c = 12.0
+    m_p = 1.86
+    d_s = 55.75
+    d_r = 109.7
+    d_c = 88.6
+    d_p = 27.0
+
+    r_s = d_s*1.0e-3/2
+    r_r = d_r*1.0e-3/2
+    r_c = d_c*1.0e-3/2
+    r_p = d_p*1.0e-3/2
+
+    k_sp = 100.0e6
+    k_s = 20.0e6
+    k_r = 100.0e6
+    k_c = 50.0e6
+    k_p = 10.0e6
+    k_su = 20.0e6
+    k_ru = 100.0e6
+    k_cu = k_ru
+    k_pu = k_p
+
+    mesh = SimpleNamespace(k_mesh=k_sp)
+    return SimpleNamespace(
+        configuration="planetary",
+        N_p=num_planet,
+        alpha_n=20.0,
+        mass=np.array([m_s, m_p, m_r]),
+        d_b=np.array([d_s, d_p, d_r]),
+        a_w=d_c/2,
+        J_x=np.array([1.75*r_s**2, 1.25*r_p**2, 8.09*r_r**2]),
+        carrier=SimpleNamespace(mass=m_c, J_x=6.80*r_c**2),
+        bearing=_bearing_array(
+            [
+                {"k_y": 0.5*k_p, "k_z": 0.5*k_p, "k_alpha": 0.5*k_pu*r_p**2, "name": "planet-a"},
+                {"k_y": 0.5*k_p, "k_z": 0.5*k_p, "k_alpha": 0.5*k_pu*r_p**2, "name": "planet-b"},
+                {"k_y": 0.5*k_c, "k_z": 0.5*k_c, "k_alpha": 0.5*k_cu*r_c**2, "name": "carrier-a"},
+                {"k_y": 0.5*k_c, "k_z": 0.5*k_c, "k_alpha": 0.5*k_cu*r_c**2, "name": "carrier-b"},
+                {"k_y": k_s, "k_z": k_s, "k_alpha": k_su*r_s**2, "name": "sun"},
+                {"k_y": k_r, "k_z": k_r, "k_alpha": k_ru*r_r**2, "name": "ring"},
+            ]
+        ),
+        sub_set=lambda name: mesh,
+    )
+
+
+def _cooley_parker_2012_reference_frequencies(num_planet):
+    if num_planet == 3:
+        nondimensional = [
+            0.9296,
+            1.090,
+            1.358,
+            1.931,
+            5.566,
+            7.741,
+            *([0.7432, 1.018, 1.265, 1.487, 4.976, 6.282]*2),
+        ]
+    elif num_planet == 4:
+        nondimensional = [
+            0.9077,
+            1.046,
+            1.317,
+            2.013,
+            5.809,
+            8.383,
+            *([0.7199, 1.001, 1.317, 1.481, 5.153, 6.488]*2),
+            0.9617,
+            4.320,
+            5.672,
+        ]
+    elif num_planet == 5:
+        nondimensional = [
+            0.8802,
+            1.019,
+            1.281,
+            2.090,
+            6.030,
+            8.986,
+            *([0.6992, 0.9863, 1.344, 1.496, 5.317, 6.693]*2),
+            *([0.9617, 4.320, 5.672]*2),
+        ]
+    else:
+        raise ValueError("num_planet must be 3, 4, or 5")
+
+    k_p = 10.0e6
+    m_p = 1.86
+    frequency_scale = np.sqrt(k_p/m_p)/(2.0*np.pi)
+    return np.sort(np.array(nondimensional)*frequency_scale)
 
 
 def _bearing_matrix(x_stiffness, y_stiffness, torsional_stiffness=0.0):
@@ -206,6 +420,28 @@ def _paper_planetary_stage_stiffness_matrices(stage):
     mesh = _mesh_blocks(stage)
     n_planet_dof = 3*stage.N_p
 
+    bearing_count = len(stage.bearing.k_y)
+    if bearing_count >= 5:
+        sun_radius = stage.d_b[0]*1.0e-3/2
+        sun_bearing = stage.bearing[4]
+        sun_bearing_matrix = _bearing_matrix(
+            sun_bearing.k_y,
+            sun_bearing.k_z,
+            sun_bearing.k_alpha/(sun_radius**2),
+        )
+    else:
+        sun_bearing_matrix = np.zeros((3, 3))
+    if bearing_count >= 6:
+        ring_radius = stage.d_b[2]*1.0e-3/2
+        ring_bearing = stage.bearing[5]
+        ring_bearing_matrix = _bearing_matrix(
+            ring_bearing.k_y,
+            ring_bearing.k_z,
+            ring_bearing.k_alpha/(ring_radius**2),
+        )
+    else:
+        ring_bearing_matrix = np.zeros((3, 3))
+
     carrier_bearing = stage.bearing[2:4].parallel_association()
     carrier_bearing_matrix = _bearing_matrix(
         carrier_bearing.k_y,
@@ -214,8 +450,8 @@ def _paper_planetary_stage_stiffness_matrices(stage):
     )
     raw_bearing = la.block_diag(
         carrier_bearing_matrix,
-        np.zeros((3, 3)),
-        np.zeros((3, 3)),
+        ring_bearing_matrix,
+        sun_bearing_matrix,
         np.zeros((n_planet_dof, n_planet_dof)),
     )
 
@@ -255,7 +491,11 @@ def _paper_planetary_stage_stiffness_matrices(stage):
     body_planet_coupling = np.vstack(
         (carrier_planet_row, ring_planet_row, sun_planet_row)
     )
-    planet_diagonal = planet_bearing_matrix + mesh["planet_ring"](k_pr) + mesh["planet_sun"](k_sp)
+    planet_diagonal = (
+        _bearing_matrix(planet_bearing.k_y, planet_bearing.k_z)
+        + mesh["planet_ring"](k_pr)
+        + mesh["planet_sun"](k_sp)
+    )
     planet_block = la.block_diag(*[planet_diagonal for _ in range(stage.N_p)])
 
     raw_mesh = np.block(
@@ -354,6 +594,26 @@ def test_lin_parker_99_stage_stiffness_matrices_match_lp99_assembly():
 
         for key in ("K_b", "K_m", "K_Omega"):
             np.testing.assert_allclose(actual[key], expected[key], atol=1.0e-4)
+
+
+@pytest.mark.parametrize("num_planet", [3, 4, 5])
+def test_lin_parker_99_reference_case_01_matches_published_frequencies(num_planet):
+    stage = _lin_parker_1999_validation_stage(num_planet)
+    actual = _reference_stage_frequencies(stage)
+    expected = _lin_parker_1999_reference_frequencies(num_planet)
+
+    assert actual.shape == expected.shape
+    np.testing.assert_allclose(actual, expected, rtol=1.0e-2, atol=1.0e-8)
+
+
+@pytest.mark.parametrize("num_planet", [3, 4, 5])
+def test_lin_parker_99_reference_case_02_matches_published_frequencies(num_planet):
+    stage = _cooley_parker_2012_validation_stage(num_planet)
+    actual = _reference_stage_frequencies(stage)
+    expected = _cooley_parker_2012_reference_frequencies(num_planet)
+
+    assert actual.shape == expected.shape
+    np.testing.assert_allclose(actual, expected, rtol=1.0e-2, atol=1.0e-8)
 
 
 def test_lin_parker_99_stage_coordinate_change_dimensions():

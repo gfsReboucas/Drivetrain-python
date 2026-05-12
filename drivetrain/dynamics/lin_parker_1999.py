@@ -86,8 +86,7 @@ class Lin_Parker_99(model):
         return {'M': M, 'G': G}
     
     @staticmethod
-    def stage_inertia_matrix(stage, include_output_shaft=False):
-
+    def raw_stage_inertia_matrix(stage):
         M_ = lambda m, J, r: np.diag([m, m, J/(r**2)])
 
         if(stage.configuration == 'parallel'):
@@ -111,7 +110,11 @@ class Lin_Parker_99(model):
                  M_(stage.mass[0],      stage.J_x[0],      r_s)] # sun
             [d.append(M_(m_p, J_p, r_p)) for i in range(stage.N_p)] # planet
 
-        M = la.block_diag(*d)
+        return la.block_diag(*d)
+
+    @staticmethod
+    def stage_inertia_matrix(stage, include_output_shaft=False):
+        M = Lin_Parker_99.raw_stage_inertia_matrix(stage)
         R = Lin_Parker_99.stage_coordinate_change(stage)
         M = R.T @ M @ R
         M = la.block_diag(M, np.zeros((3, 3)))
@@ -124,7 +127,7 @@ class Lin_Parker_99(model):
     __stage_inertia_matrix = stage_inertia_matrix
 
     @staticmethod
-    def stage_gyroscopic_matrix(stage):
+    def raw_stage_gyroscopic_matrix(stage):
         G_ = lambda m: np.array([[0.0, -2.0*m, 0.0],
                               [2.0*m,  0.0  , 0.0],
                               [0.0  ,  0.0  , 0.0]])
@@ -139,7 +142,11 @@ class Lin_Parker_99(model):
                  G_(stage.mass[0])]      # sun
             [d.append(G_(stage.mass[1])) for i in range(stage.N_p)] # planet
 
-        G = la.block_diag(*d)
+        return la.block_diag(*d)
+
+    @staticmethod
+    def stage_gyroscopic_matrix(stage):
+        G = Lin_Parker_99.raw_stage_gyroscopic_matrix(stage)
         R = Lin_Parker_99.stage_coordinate_change(stage)
         G = R.T @ G @ R
 
@@ -175,8 +182,7 @@ class Lin_Parker_99(model):
                 'K_Omega': K_Omega}
 
     @staticmethod
-    def stage_stiffness_matrix(stage, include_output_shaft=False):
-
+    def raw_stage_stiffness_matrix(stage):
         # Bearing stiffness sub-matrix:
         K_b_ = lambda x, y, u=0: np.diag([x, y, u])
         
@@ -250,10 +256,27 @@ class Lin_Parker_99(model):
         elif(stage.configuration == 'planetary'):
             n_planet_dof = 3*stage.N_p
             r_c = stage.a_w*1.0e-3
+            r_r = stage.d_b[2]*1.0e-3/2
             r_s = stage.d_b[0]*1.0e-3/2
             r_p = stage.d_b[1]*1.0e-3/2
 
             # Bearing component:
+            bearing_count = len(stage.bearing.k_y)
+            if bearing_count >= 5:
+                b_s = stage.bearing[4]
+                k_sx = b_s.k_y
+                k_sy = b_s.k_z
+                k_su = b_s.k_alpha/(r_s**2)
+            else:
+                k_sx = k_sy = k_su = 0.0
+            if bearing_count >= 6:
+                b_r = stage.bearing[5]
+                k_rx = b_r.k_y
+                k_ry = b_r.k_z
+                k_ru = b_r.k_alpha/(r_r**2)
+            else:
+                k_rx = k_ry = k_ru = 0.0
+
             b_c = stage.bearing[2:4]
             b_c = b_c.parallel_association()
 
@@ -262,8 +285,8 @@ class Lin_Parker_99(model):
             k_cu = b_c.k_alpha/(r_c**2)
 
             K_b = la.block_diag(K_b_(k_cx, k_cy, k_cu), # carrier
-                             Z3,                     # ring
-                             Z3,                     # sun
+                             K_b_(k_rx, k_ry, k_ru), # ring
+                             K_b_(k_sx, k_sy, k_su), # sun
                              np.zeros((n_planet_dof, n_planet_dof))) # planet
 
             # Mesh component:
@@ -300,7 +323,7 @@ class Lin_Parker_99(model):
             diag_01 = la.block_diag(sum_Kc, sum_Kr, sum_Ks)
             diag_up = np.vstack((K_c_row, K_r_row, K_s_row))
 
-            K_pp = planet_bearing + K_r3(k_pr) + K_s3(k_sp)
+            K_pp = K_b_(k_px, k_py) + K_r3(k_pr) + K_s3(k_sp)
             diag_02 = la.block_diag(*[K_pp for i in range(stage.N_p)])
             K_m = np.block([[diag_01,  diag_up],
                          [diag_up.T, diag_02]])
@@ -313,10 +336,24 @@ class Lin_Parker_99(model):
 
             K_Omega = la.block_diag(*d)
 
+        # removing spurious elements:
+        K_b[    abs(K_b)     <= 1.0e-4] = 0.0
+        K_m[    abs(K_m)     <= 1.0e-4] = 0.0
+        K_Omega[abs(K_Omega) <= 1.0e-4] = 0.0
+
+        return {'K_b'    : K_b,
+                'K_m'    : K_m,
+                'K_Omega': K_Omega}
+
+    @staticmethod
+    def stage_stiffness_matrix(stage, include_output_shaft=False):
+        raw = Lin_Parker_99.raw_stage_stiffness_matrix(stage)
         R = Lin_Parker_99.stage_coordinate_change(stage)
-        K_b     = R.T @ K_b     @ R
-        K_m     = R.T @ K_m     @ R
-        K_Omega = R.T @ K_Omega @ R
+        Z3 = np.zeros((3, 3))
+
+        K_b     = R.T @ raw['K_b']     @ R
+        K_m     = R.T @ raw['K_m']     @ R
+        K_Omega = R.T @ raw['K_Omega'] @ R
 
         K_b = la.block_diag(K_b, Z3)
         K_m = la.block_diag(K_m, Z3)
@@ -325,7 +362,6 @@ class Lin_Parker_99(model):
         if include_output_shaft:
             K_b[-6:, -6:] += stage.output_shaft.stiffness_matrix('Lin_Parker_99')
 
-        # removing spurious elements:
         K_b[    abs(K_b)     <= 1.0e-4] = 0.0
         K_m[    abs(K_m)     <= 1.0e-4] = 0.0
         K_Omega[abs(K_Omega) <= 1.0e-4] = 0.0
