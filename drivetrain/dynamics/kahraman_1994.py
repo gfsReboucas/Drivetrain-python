@@ -123,6 +123,45 @@ class Kahraman_94(model):
         return M
 
     @staticmethod
+    def fixed_ring_planetary_frequencies(stage):
+        """Return the analytical fixed-ring planetary stage frequencies.
+
+        This is Kahraman's reduced torsional planetary model in the same
+        coordinates used by ``stage_inertia_matrix`` and
+        ``stage_stiffness_matrix``: carrier, planet 1..N, sun.
+        """
+        n_planets = stage.N_p
+        k_ring = stage.sub_set("planet-ring").k_mesh
+        k_sun = stage.sub_set("sun-planet").k_mesh
+        m_sun = stage.mass[0]
+        m_planet = stage.mass[1]
+        m_carrier = stage.carrier.mass
+
+        lambda_1 = m_planet*m_carrier*m_sun
+        lambda_2 = -(
+            n_planets*k_sun*m_planet*m_carrier
+            + (k_ring + k_sun)*m_carrier*m_sun
+            + n_planets*(k_ring + k_sun)*m_planet*m_sun
+        )
+        lambda_3 = n_planets*k_ring*k_sun*(
+            n_planets*m_planet + m_carrier + 4.0*m_sun
+        )
+        discriminant = lambda_2**2 - 4.0*lambda_1*lambda_3
+        eig_1 = (-lambda_2 - np.sqrt(discriminant))/(2.0*lambda_1)
+        eig_2 = (-lambda_2 + np.sqrt(discriminant))/(2.0*lambda_1)
+
+        repeated_frequency = np.sqrt((k_ring + k_sun)/m_planet)/(2.0*np.pi)
+        frequencies = np.array(
+            [
+                0.0,
+                *([repeated_frequency]*(n_planets - 1)),
+                np.sqrt(eig_1)/(2.0*np.pi),
+                np.sqrt(eig_2)/(2.0*np.pi),
+            ]
+        )
+        return np.sort(frequencies)
+
+    @staticmethod
     def stage_inertia_matrix(stage):
         """Return the reduced Kahraman stage inertia matrix.
 

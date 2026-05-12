@@ -69,35 +69,18 @@ def test_kahraman_fixed_ring_planetary_stage_matches_analytical_modes():
     eigenvalues = np.linalg.eigvals(np.linalg.solve(inertia, stiffness)).real
     frequencies = np.sort(np.sqrt(np.clip(eigenvalues, 0.0, None))/(2.0*np.pi))
 
-    n_planets = stage.N_p
-    k_ring = stage.sub_set("planet-ring").k_mesh
-    k_sun = stage.sub_set("sun-planet").k_mesh
-    m_sun = stage.mass[0]
-    m_planet = stage.mass[1]
-    m_carrier = stage.carrier.mass
-
-    lambda_1 = m_planet*m_carrier*m_sun
-    lambda_2 = -(
-        n_planets*k_sun*m_planet*m_carrier
-        + (k_ring + k_sun)*m_carrier*m_sun
-        + n_planets*(k_ring + k_sun)*m_planet*m_sun
-    )
-    lambda_3 = n_planets*k_ring*k_sun*(n_planets*m_planet + m_carrier + 4.0*m_sun)
-    eig_1 = (-lambda_2 - np.sqrt(lambda_2**2 - 4.0*lambda_1*lambda_3))/(2.0*lambda_1)
-    eig_2 = (-lambda_2 + np.sqrt(lambda_2**2 - 4.0*lambda_1*lambda_3))/(2.0*lambda_1)
-
-    expected = np.sort(
-        np.array(
-            [
-                0.0,
-                *([np.sqrt((k_ring + k_sun)/m_planet)/(2.0*np.pi)]*(n_planets - 1)),
-                np.sqrt(eig_1)/(2.0*np.pi),
-                np.sqrt(eig_2)/(2.0*np.pi),
-            ]
-        )
-    )
+    expected = Kahraman_94.fixed_ring_planetary_frequencies(stage)
 
     np.testing.assert_allclose(frequencies, expected, atol=1e-12)
+
+
+def test_kahraman_fixed_ring_analytical_frequencies_are_stage_parameter_based():
+    stage = _PlanetaryStage()
+    expected = np.array(
+        [0.0, 0.389848400616838, 0.389848400616838, 0.508728970094716, 0.707886793423852]
+    )
+
+    np.testing.assert_allclose(Kahraman_94.fixed_ring_planetary_frequencies(stage), expected)
 
 
 def test_kahraman_dof_descriptions_and_load_vectors_for_nrel_5mw():
