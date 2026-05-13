@@ -334,49 +334,35 @@ def _mesh_blocks(stage):
     def psi_r(index):
         return psi(index) + alpha_n
 
+    def ring_body_vector(index):
+        return np.array([np.sin(psi_r(index)), -np.cos(psi_r(index)), -1.0])
+
+    def sun_body_vector(index):
+        return np.array([np.sin(psi_s(index)), -np.cos(psi_s(index)), -1.0])
+
+    def planet_sun_vector():
+        return np.array([np.sin(alpha_n), np.cos(alpha_n), -1.0])
+
+    def planet_ring_vector():
+        return np.array([np.sin(alpha_n), -np.cos(alpha_n), -1.0])
+
     def ring_ring(k_mesh, index):
-        return k_mesh*np.array(
-            [
-                [np.sin(psi_r(index))**2, -np.sin(psi_r(index))*np.cos(psi_r(index)), -np.sin(psi_r(index))],
-                [-np.sin(psi_r(index))*np.cos(psi_r(index)), np.cos(psi_r(index))**2, np.cos(psi_r(index))],
-                [-np.sin(psi_r(index)), np.cos(psi_r(index)), 1.0],
-            ]
-        )
+        return k_mesh*np.outer(ring_body_vector(index), ring_body_vector(index))
 
     def ring_planet(k_mesh, index):
-        return k_mesh*np.array(
-            [
-                [-np.sin(psi_r(index))*np.sin(alpha_n), np.sin(psi_r(index))*np.cos(alpha_n), np.sin(psi_r(index))],
-                [np.cos(psi_r(index))*np.sin(alpha_n), -np.cos(psi_r(index))*np.cos(alpha_n), -np.cos(psi_r(index))],
-                [np.sin(alpha_n), -np.cos(alpha_n), -1.0],
-            ]
-        )
+        return -k_mesh*np.outer(ring_body_vector(index), planet_ring_vector())
 
     def sun_sun(k_mesh, index):
-        return k_mesh*np.array(
-            [
-                [np.sin(psi_s(index))**2, -np.cos(psi_s(index))*np.sin(psi_s(index)), -np.sin(psi_s(index))],
-                [-np.cos(psi_s(index))*np.sin(psi_s(index)), np.cos(psi_s(index))**2, np.cos(psi_s(index))],
-                [-np.sin(psi_s(index)), np.cos(psi_s(index)), 1.0],
-            ]
-        )
+        return k_mesh*np.outer(sun_body_vector(index), sun_body_vector(index))
 
     def sun_planet(k_mesh, index):
-        return k_mesh*np.array(
-            [
-                [np.sin(psi_s(index))*np.sin(alpha_n), np.sin(psi_s(index))*np.cos(alpha_n), -np.sin(psi_s(index))],
-                [-np.cos(psi_s(index))*np.sin(alpha_n), -np.cos(psi_s(index))*np.cos(alpha_n), np.cos(psi_s(index))],
-                [-np.sin(alpha_n), -np.cos(alpha_n), 1.0],
-            ]
-        )
+        return k_mesh*np.outer(sun_body_vector(index), planet_sun_vector())
 
     def planet_sun(k_mesh):
-        line_of_action = np.array([np.sin(alpha_n), np.cos(alpha_n), -1.0])
-        return k_mesh*np.outer(line_of_action, line_of_action)
+        return k_mesh*np.outer(planet_sun_vector(), planet_sun_vector())
 
     def planet_ring(k_mesh):
-        line_of_action = np.array([np.sin(alpha_n), -np.cos(alpha_n), -1.0])
-        return k_mesh*np.outer(line_of_action, line_of_action)
+        return k_mesh*np.outer(planet_ring_vector(), planet_ring_vector())
 
     def carrier_planet(k_mesh, index):
         return k_mesh*np.array(
