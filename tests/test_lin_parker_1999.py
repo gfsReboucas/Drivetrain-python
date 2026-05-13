@@ -253,6 +253,28 @@ def _with_output_interface(matrix):
     return la.block_diag(matrix, np.zeros((3, 3)))
 
 
+def _assert_positive_semidefinite(matrix, atol=1.0e-5):
+    """Assert matrix has no physically meaningful negative eigenvalues."""
+    symmetric = (matrix + matrix.T)/2
+    eigenvalues = np.linalg.eigvalsh(symmetric)
+
+    assert eigenvalues[0] >= -atol
+
+
+def _planet_block_rotation_matrix(stage):
+    """Return a permutation that cyclically reindexes equal planet DOF blocks."""
+    matrix_size = 9 + 3*stage.N_p
+    permutation = np.eye(matrix_size)
+    planet_start = 9
+    planet_size = 3*stage.N_p
+    permutation[planet_start:, planet_start:] = np.roll(
+        np.eye(planet_size),
+        shift=3,
+        axis=1,
+    )
+    return permutation
+
+
 def _paper_stage_inertia_matrix(stage):
     if stage.configuration == "parallel":
         pinion_radius = stage.d_b[0]*1.0e-3/2
@@ -673,6 +695,58 @@ def test_lin_parker_99_stage_stiffness_matrices_are_symmetric():
         np.testing.assert_allclose(stiffness["K_b"], stiffness["K_b"].T)
         np.testing.assert_allclose(stiffness["K_m"], stiffness["K_m"].T)
         np.testing.assert_allclose(stiffness["K_Omega"], stiffness["K_Omega"].T)
+
+
+def test_lin_parker_99_inertia_matrices_are_positive_semidefinite():
+    drivetrain = NREL_5MW()
+    dynamic_model = Lin_Parker_99(drivetrain)
+
+    _assert_positive_semidefinite(dynamic_model.M)
+    for stage_index in range(3):
+        stage = NREL_5MW.gear_set(stage_index)
+        raw_inertia = Lin_Parker_99.raw_stage_inertia_matrix(stage)
+        stage_inertia = Lin_Parker_99.stage_inertia_matrix(stage)
+
+        assert np.linalg.eigvalsh(raw_inertia)[0] > 0.0
+        _assert_positive_semidefinite(stage_inertia)
+
+
+def test_lin_parker_99_stiffness_components_are_positive_semidefinite():
+    drivetrain = NREL_5MW()
+    dynamic_model = Lin_Parker_99(drivetrain)
+
+    for matrix in (dynamic_model.K_b, dynamic_model.K_m, dynamic_model.K_Omega):
+        _assert_positive_semidefinite(matrix, atol=1.0e-4)
+
+    for stage_index in range(3):
+        stage = NREL_5MW.gear_set(stage_index)
+        raw_stiffness = Lin_Parker_99.raw_stage_stiffness_matrix(stage)
+        stage_stiffness = Lin_Parker_99.stage_stiffness_matrix(stage)
+
+        for key in ("K_b", "K_m", "K_Omega"):
+            _assert_positive_semidefinite(raw_stiffness[key], atol=1.0e-4)
+            _assert_positive_semidefinite(stage_stiffness[key], atol=1.0e-4)
+
+
+@pytest.mark.parametrize("num_planet", [3, 4, 5])
+def test_lin_parker_99_planet_block_rotation_preserves_reference_stage_spectra(num_planet):
+    stage = _lin_parker_1999_validation_stage(num_planet)
+    permutation = _planet_block_rotation_matrix(stage)
+    raw_stiffness = Lin_Parker_99.raw_stage_stiffness_matrix(stage)
+
+    for matrix in (
+        Lin_Parker_99.raw_stage_inertia_matrix(stage),
+        Lin_Parker_99.raw_stage_gyroscopic_matrix(stage),
+        raw_stiffness["K_b"],
+        raw_stiffness["K_m"],
+        raw_stiffness["K_Omega"],
+    ):
+        rotated = permutation.T @ matrix @ permutation
+        np.testing.assert_allclose(
+            np.sort_complex(np.linalg.eigvals(rotated)),
+            np.sort_complex(np.linalg.eigvals(matrix)),
+            atol=1.0e-6,
+        )
 
 
 def test_lin_parker_99_stage_total_stiffness_has_no_significant_negative_eigenvalues():
