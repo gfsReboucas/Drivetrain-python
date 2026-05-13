@@ -41,6 +41,27 @@ def _lin_parker_shaft_projection():
     return transform
 
 
+def _component_shaft_gyroscopic_matrix(shaft):
+    material = Material()
+    length_m = shaft.L * 1.0e-3
+    coupling = np.array(
+        [
+            [36.0, 3.0*length_m, -36.0, 3.0*length_m],
+            [3.0*length_m, 4.0*length_m**2, -3.0*length_m, -length_m**2],
+            [-36.0, -3.0*length_m, 36.0, -3.0*length_m],
+            [3.0*length_m, -length_m**2, -3.0*length_m, 4.0*length_m**2],
+        ]
+    )
+    coupling *= material.rho * shaft.I_x / (30.0 * length_m)
+
+    gyroscopic = np.zeros((12, 12))
+    y_dofs = slice(4, 8)
+    z_dofs = slice(8, 12)
+    gyroscopic[y_dofs, z_dofs] = coupling
+    gyroscopic[z_dofs, y_dofs] = -coupling.T
+    return gyroscopic
+
+
 def test_shaft_torsional_stiffness_matches_closed_form():
     shaft = Shaft(50.0, 1000.0)
     material = Material()
@@ -209,6 +230,46 @@ def test_shaft_lin_parker_projection_matches_documented_coordinates():
         rtol=1e-12,
         atol=1e-6,
     )
+
+
+def test_shaft_full_gyroscopic_matrix_matches_nelson_mcvaugh_reference():
+    shaft = Shaft(50.0, 1000.0)
+    transform = _full_shaft_coordinate_transform()
+    expected = transform.T @ _component_shaft_gyroscopic_matrix(shaft) @ transform
+
+    actual = shaft.gyroscopic_matrix("full")
+
+    np.testing.assert_allclose(actual, expected, rtol=1e-12, atol=1e-12)
+    np.testing.assert_allclose(actual, -actual.T, rtol=1e-12, atol=1e-12)
+
+
+def test_shaft_gyroscopic_matrix_scales_with_spin_speed():
+    shaft = Shaft(50.0, 1000.0)
+    unit_spin = shaft.gyroscopic_matrix("full")
+
+    np.testing.assert_allclose(
+        shaft.gyroscopic_matrix("full", spin_speed=3.5),
+        3.5 * unit_spin,
+        rtol=1e-12,
+        atol=1e-12,
+    )
+    np.testing.assert_allclose(
+        shaft.gyroscopic_matrix("full", spin_speed=0.0),
+        np.zeros((12, 12)),
+        rtol=1e-12,
+        atol=1e-12,
+    )
+
+
+def test_shaft_lin_parker_gyroscopic_projection_matches_documented_coordinates():
+    shaft = Shaft(50.0, 1000.0)
+    transform = _lin_parker_shaft_projection()
+    expected = transform.T @ shaft.gyroscopic_matrix("full") @ transform
+
+    actual = shaft.gyroscopic_matrix("Lin_Parker_99")
+
+    np.testing.assert_allclose(actual, expected, rtol=1e-12, atol=1e-12)
+    np.testing.assert_allclose(actual, -actual.T, rtol=1e-12, atol=1e-12)
 
 
 def test_shaft_full_matrix_modes_match_decoupled_matrix_reference():

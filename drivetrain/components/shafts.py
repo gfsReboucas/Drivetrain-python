@@ -28,6 +28,10 @@ class Shaft:
         [3] Paz M., Kim Y.H. (2019) Dynamic Analysis of Three-Dimensional Frames. 
         In: Structural Dynamics. Springer, Cham
         https://doi.org/10.1007/978-3-319-94743-3_13
+
+        [4] Nelson H.D., McVaugh J.M. (1976). The Dynamics of Rotor-Bearing
+        Systems Using Finite Elements. Journal of Engineering for Industry,
+        98(2), 593-600. https://doi.org/10.1115/1.3438942
         
     written by:
         Geraldo Rebouças
@@ -85,6 +89,34 @@ class Shaft:
         LL = self.L*scaling_factor('L', gamma)
         
         return Shaft(dd, LL)
+
+    @staticmethod
+    def _full_coordinate_transform():
+        R = np.zeros((12, 12))
+        R[ 1 - 1,  1 - 1] =  1
+        R[ 2 - 1,  7 - 1] =  1
+        R[ 3 - 1,  4 - 1] =  1
+        R[ 4 - 1, 10 - 1] =  1
+        R[ 9 - 1,  3 - 1] =  1
+        R[10 - 1,  5 - 1] =  1
+        R[11 - 1,  9 - 1] =  1
+        R[12 - 1, 11 - 1] =  1
+        R[ 5 - 1,  2 - 1] =  1
+        R[ 6 - 1,  6 - 1] = -1
+        R[ 7 - 1,  8 - 1] =  1
+        R[ 8 - 1, 12 - 1] = -1
+        return R
+
+    @staticmethod
+    def _lin_parker_coordinate_projection():
+        R = np.zeros((12, 6))
+        R[ 2 - 1, 1 - 1] = 1
+        R[ 3 - 1, 2 - 1] = 1
+        R[ 4 - 1, 3 - 1] = 1
+        R[ 8 - 1, 4 - 1] = 1
+        R[ 9 - 1, 5 - 1] = 1
+        R[10 - 1, 6 - 1] = 1
+        return R
     
     def stiffness(self, option):
         E = Material().E
@@ -149,19 +181,7 @@ class Shaft:
             # with u = R v and transformed matrices R.T @ M @ R.
             # Negative entries below encode the bending rotation sign
             # convention used by the local beam element.
-            R = np.zeros((12, 12))
-            R[ 1 - 1,  1 - 1] =  1
-            R[ 2 - 1,  7 - 1] =  1
-            R[ 3 - 1,  4 - 1] =  1
-            R[ 4 - 1, 10 - 1] =  1
-            R[ 9 - 1,  3 - 1] =  1
-            R[10 - 1,  5 - 1] =  1
-            R[11 - 1,  9 - 1] =  1
-            R[12 - 1, 11 - 1] =  1
-            R[ 5 - 1,  2 - 1] =  1
-            R[ 6 - 1,  6 - 1] = -1
-            R[ 7 - 1,  8 - 1] =  1
-            R[ 8 - 1, 12 - 1] = -1
+            R = self._full_coordinate_transform()
             
             M = R.T @ M @ R
         elif(option == 'Lin_Parker_99'):
@@ -172,13 +192,7 @@ class Shaft:
             #   v_lp = [y1, z1, a1, y2, z2, a2]
             # selected from full beam coordinates
             #   v = [x1, y1, z1, a1, b1, g1, x2, y2, z2, a2, b2, g2].
-            R = np.zeros((12, 6))
-            R[2  - 1, 1 - 1] = 1
-            R[3  - 1, 2 - 1] = 1
-            R[4  - 1, 3 - 1] = 1
-            R[8  - 1, 4 - 1] = 1
-            R[9  - 1, 5 - 1] = 1
-            R[10 - 1, 6 - 1] = 1
+            R = self._lin_parker_coordinate_projection()
             
             M = R.T @ M @ R
         else:
@@ -227,19 +241,7 @@ class Shaft:
             # with u = R v and transformed matrices R.T @ K @ R.
             # Negative entries below encode the bending rotation sign
             # convention used by the local beam element.
-            R = np.zeros((12, 12))
-            R[ 1 - 1,  1 - 1] =  1
-            R[ 2 - 1,  7 - 1] =  1
-            R[ 3 - 1,  4 - 1] =  1
-            R[ 4 - 1, 10 - 1] =  1
-            R[ 9 - 1,  3 - 1] =  1
-            R[10 - 1,  5 - 1] =  1
-            R[11 - 1,  9 - 1] =  1
-            R[12 - 1, 11 - 1] =  1
-            R[ 5 - 1,  2 - 1] =  1
-            R[ 6 - 1,  6 - 1] = -1
-            R[ 7 - 1,  8 - 1] =  1
-            R[ 8 - 1, 12 - 1] = -1
+            R = self._full_coordinate_transform()
             
             K = R.T @ K @ R
         elif(option == 'Lin_Parker_99'):
@@ -247,13 +249,7 @@ class Shaft:
             
             # Lin/Parker reduced shaft coordinates:
             #   v_lp = [y1, z1, a1, y2, z2, a2].
-            R = np.zeros((12, 6))
-            R[ 2 - 1, 1 - 1] = 1
-            R[ 3 - 1, 2 - 1] = 1
-            R[ 4 - 1, 3 - 1] = 1
-            R[ 8 - 1, 4 - 1] = 1
-            R[ 9 - 1, 5 - 1] = 1
-            R[10 - 1, 6 - 1] = 1
+            R = self._lin_parker_coordinate_projection()
             
             K = R.T @ K @ R
         else:
@@ -263,6 +259,52 @@ class Shaft:
         #     K = (K + K.T)/2
         
         return K
+
+    def gyroscopic_matrix(self, option, spin_speed=1.0):
+        """Return the shaft gyroscopic matrix for spin about the local x axis.
+
+        The beam term follows the Nelson-McVaugh finite-element rotor
+        formulation. ``spin_speed`` scales the matrix linearly; pass
+        ``spin_speed=1`` for model assemblies where operating speed is applied
+        outside the structural matrices.
+        """
+
+        rho = Material().rho
+        L = self.L*1.0e-3
+
+        G = -1.0
+
+        if(option == 'full'):
+            # Component coordinates before the full beam transform:
+            #   u = [x1, x2, a1, a2, y1, g1, y2, g2, z1, b1, z2, b2].
+            # The spinning Euler-Bernoulli shaft couples the two bending
+            # planes through their cross-section rotations.
+            H = np.array(
+                [
+                    [ 36.0,  3.0*L, -36.0,  3.0*L],
+                    [3.0*L, 4.0*L**2, -3.0*L, -L**2],
+                    [-36.0, -3.0*L,  36.0, -3.0*L],
+                    [3.0*L, -L**2, -3.0*L, 4.0*L**2],
+                ]
+            )
+            H *= rho*self.I_x/(30.0*L)
+
+            G = np.zeros((12, 12))
+            y_dofs = slice(4, 8)
+            z_dofs = slice(8, 12)
+            G[y_dofs, z_dofs] = H
+            G[z_dofs, y_dofs] = -H.T
+
+            R = self._full_coordinate_transform()
+            G = R.T @ G @ R
+        elif(option == 'Lin_Parker_99'):
+            G = self.gyroscopic_matrix('full', spin_speed=1.0)
+            R = self._lin_parker_coordinate_projection()
+            G = R.T @ G @ R
+        else:
+            print('Option [{}] is NOT valid.'.format(option))
+
+        return spin_speed*G
 
     def damping_matrix(self, option, beta=0.01):
         return beta*self.stiffness_matrix(option)

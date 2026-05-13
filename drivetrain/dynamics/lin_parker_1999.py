@@ -73,6 +73,9 @@ class Lin_Parker_99(model):
         i = 0
         sub_range = slice(N[i], N[i + 1])
         if self.include_shafts:
+            # Shaft gyroscopic matrices are available on Shaft but are not
+            # assembled here until drivetrain-level shaft speed ratios are
+            # defined explicitly.
             M[sub_range, sub_range] += DT.main_shaft.inertia_matrix('Lin_Parker_99')
         
         for i in range(DT.N_st):
