@@ -21,6 +21,74 @@ def _bearing_array(entries):
     )
 
 
+class _ZeroLP99Shaft:
+    """Shaft double that keeps hand-calculated stage fixtures local to one stage."""
+
+    def inertia_matrix(self, option):
+        assert option == "Lin_Parker_99"
+        return np.zeros((6, 6))
+
+    def stiffness_matrix(self, option):
+        assert option == "Lin_Parker_99"
+        return np.zeros((6, 6))
+
+
+def _lp99_hand_parallel_stage():
+    """Two-gear fixture with alpha=0 and base radii 1/2 for direct inspection."""
+
+    return SimpleNamespace(
+        configuration="parallel",
+        N_p=1,
+        alpha_n=0.0,
+        mass=np.array([3.0, 5.0]),
+        J_x=np.array([6.0, 20.0]),
+        d_b=np.array([2000.0, 4000.0]),
+        k_mesh=7.0,
+        bearing=_bearing_array(
+            [
+                {"k_y": 2.0, "k_z": 3.0, "k_alpha": 32.0, "name": "wheel-a"},
+                {"k_y": 0.0, "k_z": 0.0, "k_alpha": 0.0, "name": "wheel-b"},
+                {"k_y": 0.0, "k_z": 0.0, "k_alpha": 0.0, "name": "wheel-c"},
+                {"k_y": 11.0, "k_z": 13.0, "k_alpha": 17.0, "name": "pinion-a"},
+                {"k_y": 0.0, "k_z": 0.0, "k_alpha": 0.0, "name": "pinion-b"},
+                {"k_y": 0.0, "k_z": 0.0, "k_alpha": 0.0, "name": "pinion-c"},
+            ]
+        ),
+        output_shaft=_ZeroLP99Shaft(),
+    )
+
+
+def _lp99_hand_planetary_stage():
+    """One-planet fixture with alpha=0 and unit base radii for compact matrices."""
+
+    mesh = {
+        "sun-planet": SimpleNamespace(k_mesh=2.0),
+        "planet-ring": SimpleNamespace(k_mesh=3.0),
+    }
+    return SimpleNamespace(
+        configuration="planetary",
+        N_p=1,
+        alpha_n=0.0,
+        mass=np.array([2.0, 3.0, 5.0]),
+        J_x=np.array([11.0, 13.0, 17.0]),
+        d_b=np.array([2000.0, 2000.0, 2000.0]),
+        a_w=1000.0,
+        carrier=SimpleNamespace(mass=7.0, J_x=19.0),
+        bearing=_bearing_array(
+            [
+                {"k_y": 0.0, "k_z": 0.0, "k_alpha": 0.0, "name": "planet-a"},
+                {"k_y": 0.0, "k_z": 0.0, "k_alpha": 0.0, "name": "planet-b"},
+                {"k_y": 0.0, "k_z": 0.0, "k_alpha": 0.0, "name": "carrier-a"},
+                {"k_y": 0.0, "k_z": 0.0, "k_alpha": 0.0, "name": "carrier-b"},
+                {"k_y": 0.0, "k_z": 0.0, "k_alpha": 0.0, "name": "sun"},
+                {"k_y": 0.0, "k_z": 0.0, "k_alpha": 0.0, "name": "ring"},
+            ]
+        ),
+        sub_set=lambda name: mesh[name],
+        output_shaft=_ZeroLP99Shaft(),
+    )
+
+
 def _reference_stage_frequencies(stage):
     inertia = Lin_Parker_99.raw_stage_inertia_matrix(stage)
     stiffness_parts = Lin_Parker_99.raw_stage_stiffness_matrix(stage)
@@ -602,6 +670,70 @@ def test_lin_parker_99_stage_stiffness_matrices_match_lp99_assembly():
 
         for key in ("K_b", "K_m", "K_Omega"):
             np.testing.assert_allclose(actual[key], expected[key], atol=1.0e-4)
+
+
+def test_lin_parker_99_hand_calculated_parallel_fixture_raw_matrices():
+    """Check raw LP99 matrices against a small fixture evaluated by hand."""
+
+    stage = _lp99_hand_parallel_stage()
+
+    expected_inertia = np.diag([3.0, 3.0, 6.0, 5.0, 5.0, 5.0])
+    expected_gyro = la.block_diag(
+        np.array([[0.0, -6.0, 0.0], [6.0, 0.0, 0.0], [0.0, 0.0, 0.0]]),
+        np.array([[0.0, -10.0, 0.0], [10.0, 0.0, 0.0], [0.0, 0.0, 0.0]]),
+    )
+    expected_bearing = la.block_diag(np.zeros((3, 3)), np.diag([11.0, 13.0, 17.0]))
+    expected_mesh = np.array(
+        [
+            [2.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+            [0.0, 10.0, -7.0, 0.0, -7.0, -7.0],
+            [0.0, -7.0, 15.0, 0.0, 7.0, 7.0],
+            [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+            [0.0, -7.0, 7.0, 0.0, 7.0, 7.0],
+            [0.0, -7.0, 7.0, 0.0, 7.0, 7.0],
+        ]
+    )
+    expected_centripetal = np.diag([3.0, 3.0, 0.0, 5.0, 5.0, 0.0])
+
+    stiffness = Lin_Parker_99.raw_stage_stiffness_matrix(stage)
+
+    np.testing.assert_allclose(Lin_Parker_99.raw_stage_inertia_matrix(stage), expected_inertia)
+    np.testing.assert_allclose(Lin_Parker_99.raw_stage_gyroscopic_matrix(stage), expected_gyro)
+    np.testing.assert_allclose(stiffness["K_b"], expected_bearing)
+    np.testing.assert_allclose(stiffness["K_m"], expected_mesh)
+    np.testing.assert_allclose(stiffness["K_Omega"], expected_centripetal)
+
+
+def test_lin_parker_99_hand_calculated_one_planet_fixture_raw_matrices():
+    """Check planetary LP99 matrices against a compact one-planet hand fixture."""
+
+    stage = _lp99_hand_planetary_stage()
+
+    expected_inertia = np.diag([7.0, 7.0, 19.0, 5.0, 5.0, 17.0, 2.0, 2.0, 11.0, 3.0, 3.0, 13.0])
+    expected_gyro = la.block_diag(
+        np.array([[0.0, -14.0, 0.0], [14.0, 0.0, 0.0], [0.0, 0.0, 0.0]]),
+        np.array([[0.0, -10.0, 0.0], [10.0, 0.0, 0.0], [0.0, 0.0, 0.0]]),
+        np.array([[0.0, -4.0, 0.0], [4.0, 0.0, 0.0], [0.0, 0.0, 0.0]]),
+        np.array([[0.0, -6.0, 0.0], [6.0, 0.0, 0.0], [0.0, 0.0, 0.0]]),
+    )
+    expected_bearing = np.zeros((12, 12))
+    expected_mesh = np.zeros((12, 12))
+    expected_mesh[3:6, 3:6] = 3.0 * np.array([[0.0, 0.0, 0.0], [0.0, 1.0, 1.0], [0.0, 1.0, 1.0]])
+    expected_mesh[6:9, 6:9] = 2.0 * np.array([[0.0, 0.0, 0.0], [0.0, 1.0, 1.0], [0.0, 1.0, 1.0]])
+    expected_mesh[3:6, 9:12] = 3.0 * np.array([[0.0, 0.0, 0.0], [0.0, -1.0, -1.0], [0.0, -1.0, -1.0]])
+    expected_mesh[6:9, 9:12] = 2.0 * np.array([[0.0, 0.0, 0.0], [0.0, -1.0, 1.0], [0.0, -1.0, 1.0]])
+    expected_mesh[9:12, 3:6] = expected_mesh[3:6, 9:12].T
+    expected_mesh[9:12, 6:9] = expected_mesh[6:9, 9:12].T
+    expected_mesh[9:12, 9:12] = np.array([[0.0, 0.0, 0.0], [0.0, 5.0, 1.0], [0.0, 1.0, 5.0]])
+    expected_centripetal = np.diag([7.0, 7.0, 0.0, 5.0, 5.0, 0.0, 2.0, 2.0, 0.0, 3.0, 3.0, 0.0])
+
+    stiffness = Lin_Parker_99.raw_stage_stiffness_matrix(stage)
+
+    np.testing.assert_allclose(Lin_Parker_99.raw_stage_inertia_matrix(stage), expected_inertia)
+    np.testing.assert_allclose(Lin_Parker_99.raw_stage_gyroscopic_matrix(stage), expected_gyro)
+    np.testing.assert_allclose(stiffness["K_b"], expected_bearing)
+    np.testing.assert_allclose(stiffness["K_m"], expected_mesh)
+    np.testing.assert_allclose(stiffness["K_Omega"], expected_centripetal)
 
 
 @pytest.mark.parametrize("num_planet", [3, 4, 5])
