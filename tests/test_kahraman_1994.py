@@ -44,6 +44,15 @@ class _PlanetaryStage:
         raise ValueError(option)
 
 
+class _ParallelStage:
+    configuration = "parallel"
+    N_p = 1
+    d = np.array([1000.0, 2000.0])
+    mass = np.array([2.0, 3.0])
+    k_mesh = 5.0
+    output_shaft = _ZeroShaft()
+
+
 def test_kahraman_stage_helpers_document_reduced_dof_ordering():
     stage = _PlanetaryStage()
 
@@ -81,6 +90,81 @@ def test_kahraman_fixed_ring_analytical_frequencies_are_stage_parameter_based():
     )
 
     np.testing.assert_allclose(Kahraman_94.fixed_ring_planetary_frequencies(stage), expected)
+
+
+def test_kahraman_fault_stiffness_helpers_are_symmetric_and_component_based():
+    stage = _PlanetaryStage()
+    sun = Kahraman_94.sun_fault_stiffness_matrix(stage)
+    planet = Kahraman_94.planet_fault_stiffness_matrix(stage, planet_index=1)
+    ring = Kahraman_94.ring_fault_stiffness_matrix(stage)
+    nominal = Kahraman_94.stage_stiffness_matrix(stage)
+
+    np.testing.assert_allclose(sun, sun.T)
+    np.testing.assert_allclose(planet, planet.T)
+    np.testing.assert_allclose(ring, ring.T)
+    np.testing.assert_allclose(sun + ring, nominal)
+    assert np.count_nonzero(planet[2]) > 0
+    assert np.count_nonzero(planet[1]) == 0
+    assert np.count_nonzero(ring[-2]) == 0
+
+
+def test_kahraman_parallel_fault_uses_full_parallel_mesh_stiffness():
+    stage = _ParallelStage()
+
+    np.testing.assert_allclose(
+        Kahraman_94.fault_stiffness_matrix(stage, "parallel"),
+        Kahraman_94.stage_stiffness_matrix(stage),
+    )
+
+
+def test_kahraman_faulty_inertia_matrix_reduces_selected_component():
+    planetary = _PlanetaryStage()
+    parallel = _ParallelStage()
+
+    planetary_nominal = Kahraman_94.stage_inertia_matrix(planetary)
+    planetary_faulty = Kahraman_94.stage_faulty_inertia_matrix(
+        planetary,
+        fault_val=0.25,
+        planet_index=2,
+    )
+    parallel_nominal = Kahraman_94.stage_inertia_matrix(parallel)
+    parallel_faulty = Kahraman_94.stage_faulty_inertia_matrix(parallel, fault_val=0.25)
+
+    np.testing.assert_allclose(planetary_faulty[3, 3], 0.75*planetary_nominal[3, 3])
+    np.testing.assert_allclose(planetary_faulty[1, 1], planetary_nominal[1, 1])
+    np.testing.assert_allclose(parallel_faulty[0, 0], 0.75*parallel_nominal[0, 0])
+    np.testing.assert_allclose(parallel_faulty[1, 1], parallel_nominal[1, 1])
+
+
+def test_kahraman_model_level_fault_reduces_selected_stage_matrix():
+    drivetrain = NREL_5MW()
+    stage = drivetrain.stage[0]
+
+    nominal = Kahraman_94(drivetrain)
+    stiffness_fault = Kahraman_94(
+        drivetrain,
+        fault_type="sun",
+        fault_stage=0,
+        fault_val=0.1,
+    )
+    mass_fault = Kahraman_94(
+        drivetrain,
+        fault_type="mass",
+        fault_stage=0,
+        fault_val=0.2,
+        fault_planet=1,
+    )
+
+    stage_slice = slice(nominal.n_DOF[1] - 1, nominal.n_DOF[2])
+    expected_stiffness = 0.1*Kahraman_94.sun_fault_stiffness_matrix(stage)
+    np.testing.assert_allclose(
+        nominal.K[stage_slice, stage_slice] - stiffness_fault.K[stage_slice, stage_slice],
+        expected_stiffness,
+    )
+    np.testing.assert_allclose(
+        mass_fault.M[stage_slice.start + 2, stage_slice.start + 2],
+        0.8*nominal.M[stage_slice.start + 2, stage_slice.start + 2],
+    )
 
 
 def test_kahraman_dof_descriptions_and_load_vectors_for_nrel_5mw():

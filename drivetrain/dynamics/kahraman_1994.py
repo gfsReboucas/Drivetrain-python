@@ -21,8 +21,13 @@ from .base import model
 
 
 class Kahraman_94(model):
-    def __init__(self, dtrain):
+    def __init__(self, dtrain, fault_type="", fault_stage=None, fault_val=0.0, fault_planet=0):
         super().__init__(dtrain)
+        self.fault_type = self._normalize_fault_type(fault_type)
+        self.fault_stage = fault_stage
+        self.fault_val = fault_val
+        self.fault_planet = fault_planet
+        self.has_fault = self.fault_type != ""
         
         # number of DOFs for each stage:
         self.n_DOF = self.__calc_NDOF()
@@ -117,8 +122,16 @@ class Kahraman_94(model):
         
         for i in range(DT.N_st):
             sub_range = slice(N[i + 1] - 1, N[i + 2])
+            if self._stage_has_fault(i) and self.fault_type == "mass":
+                stage_inertia = Kahraman_94.stage_faulty_inertia_matrix(
+                    DT.stage[i],
+                    self._fault_value_for_stage(i),
+                    planet_index=self.fault_planet,
+                )
+            else:
+                stage_inertia = Kahraman_94.stage_inertia_matrix(DT.stage[i])
             M[sub_range, 
-              sub_range] += Kahraman_94.stage_inertia_matrix(DT.stage[i])
+              sub_range] += stage_inertia
     
         return M
 
@@ -160,6 +173,125 @@ class Kahraman_94(model):
             ]
         )
         return np.sort(frequencies)
+
+    @staticmethod
+    def stage_faulty_inertia_matrix(stage, fault_val, planet_index=0):
+        """Return a stage inertia matrix with one inertial component reduced.
+
+        ``fault_val`` is a fraction. A value of ``0.2`` removes 20 percent of
+        the selected inertial term. For parallel stages the wheel inertia is
+        reduced, matching the MATLAB helper. For planetary stages one planet is
+        selected explicitly with zero-based ``planet_index``.
+        """
+        if not 0.0 <= fault_val <= 1.0:
+            raise ValueError("fault_val must be a fraction between 0 and 1")
+
+        inertia = Kahraman_94.stage_inertia_matrix(stage)
+        if stage.configuration == "parallel":
+            inertia[0, 0] *= 1.0 - fault_val
+        elif stage.configuration == "planetary":
+            if not 0 <= planet_index < stage.N_p:
+                raise ValueError("planet_index is out of range for the stage")
+            inertia[1 + planet_index, 1 + planet_index] *= 1.0 - fault_val
+        else:
+            raise ValueError(f"Unsupported stage configuration: {stage.configuration}")
+        return inertia
+
+    @staticmethod
+    def fault_stiffness_matrix(stage, fault_type, planet_index=0):
+        """Return the unscaled stiffness contribution removed by a fault."""
+        fault_type = Kahraman_94._normalize_fault_type(fault_type)
+        if fault_type == "sun":
+            return Kahraman_94.sun_fault_stiffness_matrix(stage)
+        if fault_type == "planet":
+            return Kahraman_94.planet_fault_stiffness_matrix(stage, planet_index)
+        if fault_type == "ring":
+            return Kahraman_94.ring_fault_stiffness_matrix(stage)
+        if fault_type == "parallel":
+            if stage.configuration != "parallel":
+                raise ValueError("parallel fault requires a parallel stage")
+            return Kahraman_94.stage_stiffness_matrix(stage)
+        if fault_type == "mass":
+            raise ValueError("mass faults affect inertia, not stiffness")
+        raise ValueError("empty fault_type has no stiffness contribution")
+
+    @staticmethod
+    def sun_fault_stiffness_matrix(stage):
+        """Return the sun-planet mesh stiffness contribution for all planets."""
+        Kahraman_94._require_planetary_stage(stage)
+        n = stage.N_p + 3
+        stiffness = np.zeros((n, n))
+
+        k_sun = stage.sub_set("sun-planet").k_mesh
+        r_c = stage.a_w*1.0e-3
+        r_s = stage.d[0]*1.0e-3/2.0
+        r_p = stage.d[1]*1.0e-3/2.0
+        sun = n - 2
+
+        stiffness[0, 0] = stage.N_p*k_sun*r_c**2
+        stiffness[0, sun] = -stage.N_p*r_s*k_sun*r_c
+        stiffness[sun, 0] = stiffness[0, sun]
+        stiffness[sun, sun] = stage.N_p*k_sun*r_s**2
+
+        for planet in range(1, sun):
+            stiffness[0, planet] = -r_c*r_p*k_sun
+            stiffness[planet, 0] = stiffness[0, planet]
+            stiffness[planet, planet] = k_sun*r_p**2
+            stiffness[sun, planet] = r_s*r_p*k_sun
+            stiffness[planet, sun] = stiffness[sun, planet]
+        return stiffness
+
+    @staticmethod
+    def planet_fault_stiffness_matrix(stage, planet_index=0):
+        """Return one planet's sun-planet mesh stiffness contribution."""
+        Kahraman_94._require_planetary_stage(stage)
+        if not 0 <= planet_index < stage.N_p:
+            raise ValueError("planet_index is out of range for the stage")
+        n = stage.N_p + 3
+        stiffness = np.zeros((n, n))
+
+        k_sun = stage.sub_set("sun-planet").k_mesh
+        r_c = stage.a_w*1.0e-3
+        r_s = stage.d[0]*1.0e-3/2.0
+        r_p = stage.d[1]*1.0e-3/2.0
+        planet = 1 + planet_index
+        sun = n - 2
+
+        stiffness[0, 0] = k_sun*r_c**2
+        stiffness[0, planet] = -r_c*r_p*k_sun
+        stiffness[planet, 0] = stiffness[0, planet]
+        stiffness[0, sun] = -r_s*k_sun*r_c
+        stiffness[sun, 0] = stiffness[0, sun]
+        stiffness[planet, planet] = k_sun*r_p**2
+        stiffness[sun, planet] = r_s*r_p*k_sun
+        stiffness[planet, sun] = stiffness[sun, planet]
+        stiffness[sun, sun] = k_sun*r_s**2
+        return stiffness
+
+    @staticmethod
+    def ring_fault_stiffness_matrix(stage):
+        """Return the ring-planet mesh stiffness contribution for all planets."""
+        Kahraman_94._require_planetary_stage(stage)
+        n = stage.N_p + 3
+        stiffness = np.zeros((n, n))
+
+        k_ring = stage.sub_set("planet-ring").k_mesh
+        r_c = stage.a_w*1.0e-3
+        r_p = stage.d[1]*1.0e-3/2.0
+        sun = n - 2
+
+        stiffness[0, 0] = stage.N_p*k_ring*r_c**2
+        for planet in range(1, sun):
+            stiffness[0, planet] = r_c*r_p*k_ring
+            stiffness[planet, 0] = stiffness[0, planet]
+            stiffness[planet, planet] = k_ring*r_p**2
+        return stiffness
+
+    @staticmethod
+    def _require_planetary_stage(stage):
+        """Fail early when a planetary-only fault helper receives another stage."""
+        if stage.configuration != "planetary":
+            raise ValueError("fault helper requires a planetary stage")
 
     @staticmethod
     def stage_inertia_matrix(stage):
@@ -213,8 +345,17 @@ class Kahraman_94(model):
         
         for i in range(DT.N_st):
             sub_range = slice(N[i + 1] - 1, N[i + 2])
+            stage_stiffness = Kahraman_94.stage_stiffness_matrix(DT.stage[i])
+            if self._stage_has_fault(i) and self.fault_type != "mass":
+                stage_stiffness = stage_stiffness - self._fault_value_for_stage(
+                    i
+                )*Kahraman_94.fault_stiffness_matrix(
+                    DT.stage[i],
+                    self.fault_type,
+                    planet_index=self.fault_planet,
+                )
             K[sub_range, 
-              sub_range] += Kahraman_94.stage_stiffness_matrix(DT.stage[i])
+              sub_range] += stage_stiffness
 
         return K
 
@@ -240,6 +381,39 @@ class Kahraman_94(model):
         load[0, 0] = 1.0
         load[-1, 1] = 1.0
         return load
+
+    @staticmethod
+    def _normalize_fault_type(fault_type):
+        fault_type = "" if fault_type is None else str(fault_type).lower()
+        aliases = {
+            "": "",
+            "none": "",
+            "m": "mass",
+            "mass": "mass",
+            "inertia": "mass",
+            "sun": "sun",
+            "planet": "planet",
+            "ring": "ring",
+            "parallel": "parallel",
+        }
+        if fault_type not in aliases:
+            raise ValueError(
+                "fault_type must be one of '', 'mass', 'sun', 'planet', 'ring', or 'parallel'"
+            )
+        return aliases[fault_type]
+
+    def _stage_has_fault(self, stage_index):
+        if not self.has_fault:
+            return False
+        if self.fault_stage is None:
+            return stage_index == 0
+        return stage_index == self.fault_stage
+
+    def _fault_value_for_stage(self, stage_index):
+        values = np.atleast_1d(np.asarray(self.fault_val, dtype=float))
+        if values.size == 1:
+            return values[0]
+        return values[stage_index]
     
     @staticmethod
     def stage_damping_matrix(stage, mesh_damping=500.0e6):
