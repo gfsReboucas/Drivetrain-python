@@ -736,6 +736,52 @@ def test_lin_parker_99_hand_calculated_one_planet_fixture_raw_matrices():
     np.testing.assert_allclose(stiffness["K_Omega"], expected_centripetal)
 
 
+def test_lin_parker_99_parallel_stage_gyro_speed_ratios_scale_raw_body_blocks():
+    stage = _lp99_hand_parallel_stage()
+    ratios = {"pinion": 2.0, "wheel": -0.5}
+    expected = la.block_diag(
+        2.0 * np.array([[0.0, -6.0, 0.0], [6.0, 0.0, 0.0], [0.0, 0.0, 0.0]]),
+        -0.5 * np.array([[0.0, -10.0, 0.0], [10.0, 0.0, 0.0], [0.0, 0.0, 0.0]]),
+    )
+
+    actual = Lin_Parker_99.raw_stage_gyroscopic_matrix(stage, speed_ratios=ratios)
+
+    np.testing.assert_allclose(actual, expected)
+    np.testing.assert_allclose(actual, -actual.T)
+
+
+def test_lin_parker_99_planetary_stage_gyro_speed_ratios_scale_raw_body_blocks():
+    stage = _lp99_hand_planetary_stage()
+    ratios = {"carrier": 0.25, "ring": 0.0, "sun": 3.0, "planet": -2.0}
+    expected = la.block_diag(
+        0.25 * np.array([[0.0, -14.0, 0.0], [14.0, 0.0, 0.0], [0.0, 0.0, 0.0]]),
+        0.0 * np.array([[0.0, -10.0, 0.0], [10.0, 0.0, 0.0], [0.0, 0.0, 0.0]]),
+        3.0 * np.array([[0.0, -4.0, 0.0], [4.0, 0.0, 0.0], [0.0, 0.0, 0.0]]),
+        -2.0 * np.array([[0.0, -6.0, 0.0], [6.0, 0.0, 0.0], [0.0, 0.0, 0.0]]),
+    )
+
+    actual = Lin_Parker_99.raw_stage_gyroscopic_matrix(stage, speed_ratios=ratios)
+
+    np.testing.assert_allclose(actual, expected)
+    np.testing.assert_allclose(actual, -actual.T)
+
+
+def test_lin_parker_99_stage_gyro_speed_ratios_are_applied_before_coordinate_change():
+    stage = _lp99_hand_parallel_stage()
+    ratios = {"pinion": 2.0, "wheel": 0.5}
+    transform = Lin_Parker_99.stage_coordinate_change(stage)
+    expected = transform.T @ Lin_Parker_99.raw_stage_gyroscopic_matrix(
+        stage,
+        speed_ratios=ratios,
+    ) @ transform
+    expected = la.block_diag(expected, np.zeros((3, 3)))
+
+    actual = Lin_Parker_99.stage_gyroscopic_matrix(stage, speed_ratios=ratios)
+
+    np.testing.assert_allclose(actual, expected)
+    np.testing.assert_allclose(actual, -actual.T)
+
+
 @pytest.mark.parametrize("num_planet", [3, 4, 5])
 def test_lin_parker_99_reference_case_01_matches_published_frequencies(num_planet):
     stage = _lin_parker_1999_validation_stage(num_planet)

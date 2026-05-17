@@ -130,26 +130,51 @@ class Lin_Parker_99(model):
     __stage_inertia_matrix = stage_inertia_matrix
 
     @staticmethod
-    def raw_stage_gyroscopic_matrix(stage):
+    def raw_stage_gyroscopic_matrix(stage, speed_ratios=None):
+        """Return raw body gyroscopic blocks scaled by optional speed ratios.
+
+        Speed scaling is applied before the stage coordinate transform so each
+        physical body keeps ownership of its gyroscopic block. Ratios are
+        relative to the reference speed used outside the LP99 matrices.
+        """
+
+        speed_ratios = speed_ratios or {}
         G_ = lambda m: np.array([[0.0, -2.0*m, 0.0],
                               [2.0*m,  0.0  , 0.0],
                               [0.0  ,  0.0  , 0.0]])
 
         if(stage.configuration == 'parallel'):
-            d = [G_(stage.mass[0]), # pinion
-                 G_(stage.mass[1])] # wheel
+            pinion_ratio = speed_ratios.get("pinion", 1.0)
+            wheel_ratio = speed_ratios.get("wheel", 1.0)
+
+            d = [pinion_ratio * G_(stage.mass[0]), # pinion
+                 wheel_ratio * G_(stage.mass[1])] # wheel
 
         elif(stage.configuration == 'planetary'):
-            d = [G_(stage.carrier.mass), # carrier
-                 G_(stage.mass[2]),      # ring
-                 G_(stage.mass[0])]      # sun
-            [d.append(G_(stage.mass[1])) for i in range(stage.N_p)] # planet
+            carrier_ratio = speed_ratios.get("carrier", 1.0)
+            ring_ratio = speed_ratios.get("ring", 1.0)
+            sun_ratio = speed_ratios.get("sun", 1.0)
+            planet_ratios = speed_ratios.get("planets", None)
+            default_planet_ratio = speed_ratios.get("planet", 1.0)
+
+            if planet_ratios is not None and len(planet_ratios) != stage.N_p:
+                raise ValueError("Expected one planet speed ratio per planet.")
+
+            d = [carrier_ratio * G_(stage.carrier.mass), # carrier
+                 ring_ratio * G_(stage.mass[2]),         # ring
+                 sun_ratio * G_(stage.mass[0])]          # sun
+            for i in range(stage.N_p):
+                if planet_ratios is None:
+                    planet_ratio = speed_ratios.get("planet_{}".format(i), default_planet_ratio)
+                else:
+                    planet_ratio = planet_ratios[i]
+                d.append(planet_ratio * G_(stage.mass[1])) # planet
 
         return la.block_diag(*d)
 
     @staticmethod
-    def stage_gyroscopic_matrix(stage):
-        G = Lin_Parker_99.raw_stage_gyroscopic_matrix(stage)
+    def stage_gyroscopic_matrix(stage, speed_ratios=None):
+        G = Lin_Parker_99.raw_stage_gyroscopic_matrix(stage, speed_ratios=speed_ratios)
         R = Lin_Parker_99.stage_coordinate_change(stage)
         G = R.T @ G @ R
 
