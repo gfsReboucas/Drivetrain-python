@@ -309,6 +309,101 @@ class GearSet(Gear):
                        bore_ratio    =  self.bore_ratio[idx],
                        shaft         =  self.output_shaft)
 
+    def set_gear_speed(self, speeds):
+        """Return gear speeds from partial known speeds.
+
+        This keeps the structure of MATLAB ``Gear_Set.set_gear_speed``. For
+        parallel stages, ``speeds`` is ``[pinion, wheel]`` with one known
+        speed. For planetary stages, ``speeds`` is ``[sun, planet, ring,
+        carrier]`` with one fixed zero speed and one nonzero input speed;
+        unknown values are ``np.nan``. The planetary calculation uses Willis'
+        equation and the carrier-frame sun-planet mesh relation.
+        """
+
+        speeds = np.array(speeds, dtype=float)
+
+        if(self.configuration == 'parallel'):
+            if speeds.shape != (2,):
+                raise ValueError("Parallel gear speeds must be [pinion, wheel].")
+            idx_zero = np.nan
+            U = np.flip(np.diag([1.0/self.u, self.u]), axis=0)
+        elif(self.configuration == 'planetary'):
+            if speeds.shape != (4,):
+                raise ValueError("Planetary gear speeds must be [sun, planet, ring, carrier].")
+
+            zero_indices = np.flatnonzero(speeds == 0.0)
+            if zero_indices.size == 0:
+                raise ValueError("Planetary speeds must define one fixed zero-speed element.")
+            if zero_indices.size > 1:
+                raise ValueError("Planetary speeds must define only one fixed zero-speed element.")
+
+            input_indices = np.flatnonzero(~np.isnan(speeds) & (speeds != 0.0))
+            if input_indices.size != 1:
+                raise ValueError("Gear speeds must define exactly one nonzero input speed.")
+
+            sun_teeth, planet_teeth, ring_teeth = self.z
+            ring_teeth = abs(ring_teeth)
+
+            # Willis equation for a simple planetary train:
+            #   z_s*w_s + z_r*w_r = (z_s + z_r)*w_c.
+            # Planet spin follows the sun-planet mesh in the carrier frame:
+            #   w_p = w_c - (z_s/z_p)*(w_s - w_c).
+            coefficients = np.array(
+                [
+                    [sun_teeth, 0.0, ring_teeth, -(sun_teeth + ring_teeth)],
+                    [sun_teeth/planet_teeth, 1.0, 0.0, -(1.0 + sun_teeth/planet_teeth)],
+                ]
+            )
+            values = np.zeros(2)
+
+            for index, speed in enumerate(speeds):
+                if not np.isnan(speed):
+                    row = np.zeros(4)
+                    row[index] = 1.0
+                    coefficients = np.vstack((coefficients, row))
+                    values = np.append(values, speed)
+
+            speeds = np.linalg.solve(coefficients, values)
+            idx_zero = int(zero_indices[0])
+            input_index = int(input_indices[0])
+            return speeds, idx_zero, input_index
+        else:
+            raise ValueError("Unsupported gear-set configuration: {}".format(self.configuration))
+
+        input_indices = np.flatnonzero(~np.isnan(speeds))
+        if input_indices.size != 1:
+            raise ValueError("Gear speeds must define exactly one nonzero input speed.")
+
+        nullspace = np.linalg.svd(np.eye(len(U)) - U)[2][-1]
+        input_index = int(input_indices[0])
+        nullspace = nullspace/nullspace[input_index]
+        return nullspace*speeds[input_index], idx_zero, input_index
+
+    def body_speed_ratios(self, reference="input"):
+        """Return normalized body speed ratios for gyroscopic scaling.
+
+        The default drivetrain convention is pinion input for parallel stages
+        and fixed ring, sun input, carrier output for planetary stages.
+        """
+
+        if reference != "input":
+            raise ValueError("Only input-referenced speed ratios are supported.")
+
+        if(self.configuration == 'parallel'):
+            speeds, _, _ = self.set_gear_speed([1.0, np.nan])
+            return {"pinion": speeds[0], "wheel": speeds[1]}
+
+        if(self.configuration == 'planetary'):
+            speeds, _, _ = self.set_gear_speed([1.0, np.nan, 0.0, np.nan])
+            return {
+                "sun": speeds[0],
+                "planet": speeds[1],
+                "ring": speeds[2],
+                "carrier": speeds[3],
+            }
+
+        raise ValueError("Unsupported gear-set configuration: {}".format(self.configuration))
+
     def __carrier(self):
         '''
         Initializes the planet carrier object.
